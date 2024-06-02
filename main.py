@@ -1,3 +1,4 @@
+
 import os
 from langchain_anthropic import ChatAnthropic
 from langchain.chains import ConversationChain
@@ -8,11 +9,18 @@ from langchain.prompts import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate
 )
+from langchain_voyageai import VoyageAIEmbeddings
 from dotenv import load_dotenv
 
 load_dotenv()
 
-os.getenv("ANTHROPIC_API_KEY")
+anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+v_api_key = os.getenv("VOYAGE_API_KEY")
+
+embeddings = VoyageAIEmbeddings(
+    voyage_api_key=v_api_key,
+    model="voyage-large-2-instruct"
+)
 
 chat = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.8)
 
@@ -33,6 +41,7 @@ conversation = ConversationChain(memory=memory, prompt=prompt, llm=chat)
 
 print("Welcome to the ChatBot powered by Anthropic's Claude! Type 'exit' to end the conversation.")
 
+# Base Termnial Chat Loop
 while True:
     user_input = input("You: ")
     if user_input.lower() == "exit":
