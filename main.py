@@ -1,5 +1,6 @@
 
 import os
+from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
@@ -10,18 +11,29 @@ from langchain.prompts import (
     HumanMessagePromptTemplate
 )
 from langchain_voyageai import VoyageAIEmbeddings
-from dotenv import load_dotenv
+from langchain_community.document_loaders import FireCrawlLoader
 
 load_dotenv()
 
 anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
 v_api_key = os.getenv("VOYAGE_API_KEY")
+firecrawl_api_key = os.getenv("FIRECRAWL_API_KEY")
 
+# VoyageAI Setup
 embeddings = VoyageAIEmbeddings(
     voyage_api_key=v_api_key,
     model="voyage-large-2-instruct"
 )
 
+# FireCrawl Setup
+loader = FireCrawlLoader(
+    api_key=firecrawl_api_key, url="https://python.langchain.com/v0.1/docs/get_started/introduction/", mode="scrape"
+)
+
+data = loader.load()
+print(data)
+
+# Chat setup
 chat = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.8)
 
 # Set up the prompt template

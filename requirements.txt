@@ -7,3 +7,4 @@ langchain_community
 firecrawl-py
 pinecone-client
 langchain-voyageai
+firecrawl-py
