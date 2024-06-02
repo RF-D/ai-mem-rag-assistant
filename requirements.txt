@@ -8,3 +8,6 @@ firecrawl-py
 pinecone-client
 langchain-voyageai
 firecrawl-py
+voyageai 
+pinecone-client 
+datasets
