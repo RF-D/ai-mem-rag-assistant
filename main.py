@@ -12,12 +12,28 @@ from langchain.prompts import (
 )
 from langchain_voyageai import VoyageAIEmbeddings
 from langchain_community.document_loaders import FireCrawlLoader
+from langchain_text_splitters import CharacterTextSplitter
+from langchain_pinecone import PineconeVectorStore
+
 
 load_dotenv()
 
 anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
 v_api_key = os.getenv("VOYAGE_API_KEY")
 firecrawl_api_key = os.getenv("FIRECRAWL_API_KEY")
+pinecone_api_key = os.getenv("PINECONE_API_KEY")
+
+
+# FireCrawl Setup
+loader = FireCrawlLoader(
+    api_key=firecrawl_api_key, url="https://python.langchain.com/v0.1/docs/get_started/introduction/", mode="scrape"
+)
+
+
+data = loader.load()
+text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+
+docs = text_splitter.split_documents(data)
 
 # VoyageAI Setup
 embeddings = VoyageAIEmbeddings(
@@ -25,13 +41,12 @@ embeddings = VoyageAIEmbeddings(
     model="voyage-large-2-instruct"
 )
 
-# FireCrawl Setup
-loader = FireCrawlLoader(
-    api_key=firecrawl_api_key, url="https://python.langchain.com/v0.1/docs/get_started/introduction/", mode="scrape"
-)
-
-data = loader.load()
-print(data)
+index_name = "claude01"
+docsearch = PineconeVectorStore.from_documents(
+    docs, embeddings, index_name=index_name)
+query = "What open-source libraries does the framework consist of?"
+docs = docsearch.similarity_search(query)
+print(docs[0].page_content)
 
 # Chat setup
 chat = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.8)
