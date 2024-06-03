@@ -1,1 +1,4 @@
-.env
+config/.env
+utils/__pycache__
+rag.py
+tools/__pycache__

@@ -11,3 +11,5 @@ firecrawl-py
 voyageai 
 pinecone-client 
 datasets
+langchain-pinecone
+langchainhub
