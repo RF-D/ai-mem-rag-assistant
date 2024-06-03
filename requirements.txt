@@ -4,3 +4,12 @@
 langchain
 langchain-anthropic
 langchain_community
+firecrawl-py
+pinecone-client
+langchain-voyageai
+firecrawl-py
+voyageai 
+pinecone-client 
+datasets
+langchain-pinecone
+langchainhub
