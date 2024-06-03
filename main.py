@@ -1,5 +1,4 @@
 from langchain_pinecone import PineconeVectorStore
-from langchain_voyageai import VoyageAIEmbeddings
 from langchain.prompts import (
     ChatPromptTemplate,
     MessagesPlaceholder,
@@ -14,10 +13,14 @@ from tools.firecrawl_scrape_loader import scrape
 from tools.firecrawl_crawl_loader import crawl
 from tools.text_splitter import split_text
 from tools.voyage_embeddings import setup_voyageai
+from tools.retriever_tool import retriever_tool
 
 
 # Load environment variables
 anthropic_api_key, v_api_key, firecrawl_api_key, pinecone_api_key = load_env_vars()
+
+# VoyageAI Setup
+embeddings = setup_voyageai("voyage-large-2-instruct")
 
 # Use Firecrawl to scrape or crawl URL
 data = scrape("www.google.com")
@@ -25,22 +28,18 @@ data = scrape("www.google.com")
 # Split text into documents
 docs = split_text(data)
 
-# VoyageAI Setup
-embeddings = setup_voyageai("voyage-large-2-instruct")
 
+vectorstore = PineconeVectorStore.from_documents(
+    docs, embeddings, index_name="claude01")
 
-index_name = "claude01"
-docsearch = PineconeVectorStore.from_documents(
-    docs, embeddings, index_name=index_name)
+retriever = retriever_tool(vectorstore)
 
-retriever = docsearch.as_retriever(
-    search_type="similarity", search_kwargs={"k": 6})
 retrieved_docs = retriever.invoke(
     "What open-source libraries does the framework consist of?")
 
 print(retrieved_docs[0].page_content)
 # Chat setup
-chat = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.8)
+llm = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.8)
 
 # Set up the prompt template
 prompt = ChatPromptTemplate.from_messages([
@@ -55,7 +54,7 @@ prompt = ChatPromptTemplate.from_messages([
 memory = ConversationBufferMemory(return_messages=True)
 
 # Create the conversation chain
-conversation = ConversationChain(memory=memory, prompt=prompt, llm=chat)
+conversation = ConversationChain(memory=memory, prompt=prompt, llm=llm)
 
 print("Welcome to the ChatBot powered by Anthropic's Claude! Type 'exit' to end the conversation.")
 

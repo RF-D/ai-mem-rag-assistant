@@ -9,5 +9,6 @@ api_key = load_env_vars()[1]
 
 
 def setup_voyageai(model):
-    embeddings = VoyageAIEmbeddings(voyage_api_key=api_key, model=model)
+    embeddings = VoyageAIEmbeddings(
+        voyage_api_key=api_key, model=model)
     return embeddings
