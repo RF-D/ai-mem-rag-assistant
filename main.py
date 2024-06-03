@@ -1,5 +1,4 @@
 from langchain_pinecone import PineconeVectorStore
-from langchain_text_splitters import CharacterTextSplitter
 from langchain_voyageai import VoyageAIEmbeddings
 from langchain.prompts import (
     ChatPromptTemplate,
@@ -14,22 +13,21 @@ from utils.env_loader import load_env_vars
 from tools.firecrawl_scrape_loader import scrape
 from tools.firecrawl_crawl_loader import crawl
 from tools.text_splitter import split_text
+from tools.voyage_embeddings import setup_voyageai
 
 
 # Load environment variables
 anthropic_api_key, v_api_key, firecrawl_api_key, pinecone_api_key = load_env_vars()
 
-
+# Use Firecrawl to scrape or crawl URL
 data = scrape("www.google.com")
 
-
+# Split text into documents
 docs = split_text(data)
 
 # VoyageAI Setup
-embeddings = VoyageAIEmbeddings(
-    voyage_api_key=v_api_key,
-    model="voyage-large-2-instruct"
-)
+embeddings = setup_voyageai("voyage-large-2-instruct")
+
 
 index_name = "claude01"
 docsearch = PineconeVectorStore.from_documents(
