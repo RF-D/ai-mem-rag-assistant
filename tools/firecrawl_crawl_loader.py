@@ -9,9 +9,9 @@ crawl_params = {
     'crawlerOptions': {
         'excludes': ['blog/*'],
         'includes': [],  # leave empty for all pages
-        'limit': 1000,
-        'max_depth': 2,
+        'pagelimit': 1000,
     }
+
 }
 
 

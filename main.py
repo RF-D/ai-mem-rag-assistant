@@ -23,7 +23,7 @@ anthropic_api_key, v_api_key, firecrawl_api_key, pinecone_api_key = load_env_var
 embeddings = setup_voyageai("voyage-large-2-instruct")
 
 # Use Firecrawl to scrape or crawl URL
-data = scrape("www.google.com")
+data = scrape("https://www.youtube.com/watch?v=GXRveOki4kE")
 
 # Split text into documents
 docs = split_text(data)
@@ -35,7 +35,7 @@ vectorstore = PineconeVectorStore.from_documents(
 retriever = retriever_tool(vectorstore)
 
 retrieved_docs = retriever.invoke(
-    "What open-source libraries does the framework consist of?")
+    "What is the youtube url of this video")
 
 print(retrieved_docs[0].page_content)
 # Chat setup

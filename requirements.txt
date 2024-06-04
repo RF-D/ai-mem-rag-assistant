@@ -13,3 +13,7 @@ pinecone-client
 datasets
 langchain-pinecone
 langchainhub
+langgraph
+scrapegraphai
+youtube-transcript-api
+pytube

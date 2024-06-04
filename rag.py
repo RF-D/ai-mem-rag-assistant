@@ -12,7 +12,6 @@ from langchain.prompts import (
 )
 from langchain_voyageai import VoyageAIEmbeddings
 from langchain_community.document_loaders import FireCrawlLoader
-from langchain_text_splitters import CharacterTextSplitter
 from langchain_pinecone import PineconeVectorStore
 from langchain import hub
 from langchain_core.output_parsers import StrOutputParser
@@ -26,10 +25,12 @@ from tools.firecrawl_crawl_loader import crawl
 from tools.text_splitter import split_text
 from tools.voyage_embeddings import setup_voyageai
 from tools.retriever_tool import retriever_tool
-
+from tools.webloader_tool import load_web_url
+from tools.voyage_embeddings import text_voyageai
+from tools.youtube_chat import youtube_chat
 
 # Load environment variables
-anthropic_api_key, v_api_key, firecrawl_api_key, pinecone_api_key = load_env_vars()
+anthropic_api_key, v_api_key, firecrawl_api_key, pinecone_api_key, openai_key = load_env_vars()
 
 # VoyageAI Setup
 embeddings = setup_voyageai("voyage-large-2-instruct")
@@ -43,15 +44,51 @@ def scrape_flow():
     # Split text into documents
     docs = split_text(data)
 
-    vectorstore = PineconeVectorStore.from_documents(
+    PineconeVectorStore.from_documents(
+        docs, embeddings, index_name="claude01")
+
+
+def crawl_flow():
+    url = input("Provide URL to Scrape: ")
+    # Use Firecrawl to scrape or crawl URL
+    data = crawl(url)
+
+    # Split text into documents
+    docs = split_text(data)
+
+    PineconeVectorStore.from_documents(
         docs, embeddings, index_name="claude01")
 
 
 while True:
-    user_input = input("Enter a command (scrape/ask): ")
+    user_input = input("Enter a command (scrape/crawl/load/paste/ask): ")
 
     if user_input.lower() == "scrape":
         scrape_flow()
+    elif user_input.lower() == "crawl":
+        crawl_flow()
+    elif user_input.lower() == "load":
+        url = input("Provide URL to Load: ")
+
+        data = load_web_url(url)
+        # Ensure data is a string before splitt
+    # Split text into documents
+        docs = split_text(data)
+
+        vectorstore = PineconeVectorStore.from_documents(
+            documents=docs, embedding=embeddings, index_name="claude01")
+
+        retriever = retriever_tool(vectorstore)
+    elif user_input.lower() == "yt":
+        yt_url = input("Provide YT URL to Load: ")
+        data = scrape(yt_url)
+        data += youtube_chat(yt_url)
+        # Ensure data is a string before splitting
+    # Split text into documents
+        docs = split_text(data)
+
+        vectorstore = PineconeVectorStore.from_documents(
+            documents=docs, embedding=embeddings, index_name="claude01")
 
     elif user_input.lower() == "ask":
         query = input("Ask Memory: ")
@@ -62,7 +99,7 @@ while True:
         retriever = retriever_tool(vectorstore)
 
         # Chat setup
-        llm = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.8)
+        llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0.8)
 
         template = """Use the following pieces of context to answer the question at the end.
 

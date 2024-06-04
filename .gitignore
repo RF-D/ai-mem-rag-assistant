@@ -1,3 +1,4 @@
 config/.env
 utils/__pycache__
 tools/__pycache__
+rag_chat.py
