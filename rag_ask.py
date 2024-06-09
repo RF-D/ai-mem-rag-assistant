@@ -1,4 +1,19 @@
 
+from tools.youtube_chat import youtube_chat
+from tools.voyage_embeddings import text_voyageai
+from tools.webloader_tool import load_web_url
+from tools.retriever_tool import retriever_tool
+from tools.voyage_embeddings import setup_voyageai
+from tools.text_splitter import split_text
+from tools.firecrawl_crawl_loader import crawl
+from tools.firecrawl_scrape_loader import scrape
+from utils.env_loader import load_env_vars
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from langchain import hub
+from langchain_pinecone import PineconeVectorStore
+from langchain_community.document_loaders import FireCrawlLoader
 import os
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
@@ -10,24 +25,8 @@ from langchain.prompts import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate
 )
-from langchain_voyageai import VoyageAIEmbeddings
-from langchain_community.document_loaders import FireCrawlLoader
-from langchain_pinecone import PineconeVectorStore
-from langchain import hub
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.prompts import PromptTemplate
+5from langchain_voyageai import VoyageAIEmbeddings
 
-
-from utils.env_loader import load_env_vars
-from tools.firecrawl_scrape_loader import scrape
-from tools.firecrawl_crawl_loader import crawl
-from tools.text_splitter import split_text
-from tools.voyage_embeddings import setup_voyageai
-from tools.retriever_tool import retriever_tool
-from tools.webloader_tool import load_web_url
-from tools.voyage_embeddings import text_voyageai
-from tools.youtube_chat import youtube_chat
 
 # Load environment variables
 anthropic_api_key, v_api_key, firecrawl_api_key, pinecone_api_key, openai_key = load_env_vars()
@@ -71,7 +70,7 @@ while True:
         url = input("Provide URL to Load: ")
 
         data = load_web_url(url)
-        # Ensure data is a string before splitt
+
     # Split text into documents
         docs = split_text(data)
 

@@ -7,7 +7,7 @@ from utils.env_loader import load_env_vars
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferWindowMemory
-from langchain.memory import ChatMessageHistory
+
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
@@ -32,11 +32,19 @@ from langchain_core.runnables import (
 from langchain_pinecone import PineconeVectorStore
 from tools.voyage_embeddings import setup_voyageai
 from tools.retriever_tool import retriever_tool
+from tools.tavily_search import tavily_search
+from langgraph.prebuilt import create_react_agent
+from tools.firecrawl_scrape_loader import scrape
+from tools.scrape_search import scrape_search
 
 
-anthropic_api_key, v_api_key, firecrawl_api_key, pinecone_api_key, openai_key = load_env_vars()
 
-llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0.8)
+anthropic_api_key, v_api_key, firecrawl_api_key, pinecone_api_key, openai_key, tavily_api_key,serper_api_key  = load_env_vars()
+
+llm = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.8)
+tools = [scrape_search, scrape]
+
+
 
 
 # Invoke current index
@@ -55,15 +63,24 @@ Standalone question:"""  # noqa: E501
 CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
 
 # RAG answer synthesis prompt
-template = """Answer the question based only on the following context:
+template = """You are a helpful assistan with access to tools for answering questions, first check if we have enough context to answer the question. If not, use the following tools:
 <context>
 {context}
-</context>"""
+</context>
+
+<tools>
+Internet Search:
+{tools}
+</tools>
+With this tool we can update the context and then answer the question.
+It is important when asking for references according to time to do a web search to determine the current date and year
+"""
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", template),
         MessagesPlaceholder(variable_name="chat_history"),
         ("user", "{question}"),
+       
     ]
 )
 
@@ -101,14 +118,14 @@ _search_query = RunnableBranch(
             run_name="HasChatHistoryCheck"
         ),  # Condense follow-up question and chat into a standalone_question
         RunnablePassthrough.assign(
-            chat_history=lambda x: _format_chat_history(x["chat_history"])
+            chat_history=lambda x: _format_chat_history(x["chat_history"]),
         )
         | CONDENSE_QUESTION_PROMPT
         | llm
         | StrOutputParser(),
     ),
     # Else, we have no chat history, so just pass through the question
-    RunnableLambda(itemgetter("question")),
+     RunnableLambda(itemgetter("question")),
 )
 
 _inputs = RunnableParallel(
@@ -116,6 +133,8 @@ _inputs = RunnableParallel(
         "question": lambda x: x["question"],
         "chat_history": lambda x: _format_chat_history(x["chat_history"]),
         "context": _search_query | retriever | _combine_documents,
+        "tools": lambda x: "\n".join([f"{tool.__name__}: {tool.__doc__}" for tool in tools]),
+        
     }
 ).with_types(input_type=ChatHistory)
 
@@ -130,7 +149,7 @@ while True:
         break
 
     result = chain.invoke(
-        input={"question": user_input, "chat_history": chat_history})
+        input={"question": user_input, "chat_history": chat_history, "tools": tools})
     print(f"Assistant: {result}")
 
     chat_history.append((user_input, result))
