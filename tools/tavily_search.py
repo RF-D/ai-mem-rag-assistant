@@ -1,9 +1,11 @@
 from langchain_community.retrievers import TavilySearchAPIRetriever
 from utils.env_loader import load_env_vars
+from langchain_core.tools  import tool
 
 
 
 tavily_api_key = load_env_vars()[5]
+@tool
 def tavily_search(query: str, num_results: int = 10) -> str:
     """
     This function performs a web search using the Tavily API and returns the search results.

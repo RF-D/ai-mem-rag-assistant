@@ -5,6 +5,8 @@ from tools.text_splitter import split_text
 
 
 
+
+
 tavily_api_key = load_env_vars()[5]
 firecrawl_api_key = load_env_vars()[4]
 
@@ -33,5 +35,5 @@ def scrape_search(query: str) -> str:
         
         formatted_results += f"Scraped Content: {scrape(doc.metadata.get('source'))}\n\n"
         
-        split_text(formatted_results)
+        
     return formatted_results
