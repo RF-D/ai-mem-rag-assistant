@@ -29,21 +29,26 @@ from langchain_core.runnables import (
     RunnablePassthrough,
 )
 from langchain_pinecone import PineconeVectorStore
-from tools.voyage_embeddings import setup_voyageai
-from tools.retriever_tool import retriever_tool
+from tools.voyage_embeddings import vo_embed
+from tools.retriever_tools import retriever_tool
 from dotenv import load_dotenv
 
 load_dotenv()
 
-llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0.8)
+# Create the LLM
+llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0.2)
 
 
-# Invoke current index
-embeddings = setup_voyageai("voyage-large-2-instruct")
+# Setup VectorDB
+embeddings = vo_embed()
+
+index_name = "langchain"
+
 vectorstore = PineconeVectorStore.from_existing_index(
-    embedding=embeddings, index_name="claude01")
+    embedding=embeddings, index_name=index_name)
 
-retriever = vectorstore.as_retriever()
+retriever = retriever_tool(vectorstore)
+
 
 # RAG setup
 _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
@@ -98,7 +103,8 @@ _search_query = RunnableBranch(
     (
         RunnableLambda(lambda x: bool(x.get("chat_history"))).with_config(
             run_name="HasChatHistoryCheck"
-        ),  # Condense follow-up question and chat into a standalone_question
+        ),  
+        # Condense follow-up question and chat into a standalone_question
         RunnablePassthrough.assign(
             chat_history=lambda x: _format_chat_history(x["chat_history"])
         )

@@ -1,8 +1,8 @@
 from tools.youtube_chat import youtube_chat
 from tools.voyage_embeddings import text_voyageai
 from tools.webloader_tool import load_web_url
-from tools.retriever_tool import retriever_tool
-from tools.voyage_embeddings import setup_voyageai
+from tools.retriever_tools import retriever_tool
+from tools.voyage_embeddings import vo_embed
 from tools.text_splitter import split_text
 from tools.firecrawl_crawl_loader import crawl
 from tools.firecrawl_scrape_loader import scrape
@@ -20,7 +20,7 @@ load_dotenv()
 
 
 # VoyageAI Setup
-embeddings = setup_voyageai("voyage-large-2-instruct")
+embeddings = vo_embed("voyage-large-2-instruct")
 
 
 def scrape_flow():

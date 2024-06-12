@@ -10,9 +10,9 @@ api_key = load_env_vars()[1]
 vo = voyageai.Client(api_key=api_key)
 
 
-def setup_voyageai(model):
+def vo_embed():
     embeddings = VoyageAIEmbeddings(
-        voyage_api_key=api_key, model=model)
+        voyage_api_key=api_key, model="voyage-large-2-instruct")
     return embeddings
 
 

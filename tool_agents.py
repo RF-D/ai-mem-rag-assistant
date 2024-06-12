@@ -16,6 +16,6 @@ agent = create_tool_calling_agent(llm, tools, prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools)
 
 user_input = "What is the weather in tx right now?"
-response = agent_executor.invoke({"input": user_input},config={"callbacks": [tracer]})
+response = agent_executor.invoke({"input": user_input})
 
 print(response)
