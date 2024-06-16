@@ -5,7 +5,8 @@ from tools.retriever_tools import retriever_tool
 from tools.voyage_embeddings import vo_embed
 from langchain_pinecone import PineconeVectorStore
 
-site = get_xml("https://python.langchain.com/sitemap.xml")
+#Provide sitemap url here
+site = get_xml("https://docs.streamlit.io/sitemap.xml")
 
 docs = split_text(site)
 

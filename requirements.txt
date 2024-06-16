@@ -23,3 +23,4 @@ tavily-python
 dotenv-python
 nest_asyncio
 lxml
+streamlit

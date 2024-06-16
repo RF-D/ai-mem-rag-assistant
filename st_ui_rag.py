@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 from operator import itemgetter
 from typing import List, Tuple
 
@@ -36,7 +37,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Create the LLM
-llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0.2)
+llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0.8)
 
 
 # Setup VectorDB
@@ -131,16 +132,46 @@ _inputs = RunnableParallel(
 
 chain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
 
-# Conversation loop
+
+#streamlit app
+
+
+# Initialize chat history
 chat_history = []
-print("Welcome to the AI Chatbot!")
-while True:
-    user_input = input("User: ")
-    if user_input.lower() == "quit":
-        break
 
-    result = chain.invoke(
-        input={"question": user_input, "chat_history": chat_history})
-    print(f"Assistant: {result}")
+st.title("Rag Chat")
 
-    chat_history.append((user_input, result))
+#Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+    
+#Display chat history    
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+#User input
+user_input = st.chat_input("Write something here...", key="input")
+
+
+if user_input:
+    #Display user input in chat message container
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # Append to chat history
+    chat_history = st.session_state.messages.append({"role": "user", "content": user_input})
+
+
+    # Display assistant response in chat message container
+    with st.chat_message("assistant"):
+        loading_message = st.empty()
+        loading_message.markdown("Thinking...")
+        
+        result = ""
+        for word in chain.invoke(input={"question": user_input, "chat_history": st.session_state.messages}):
+            result += word
+            loading_message.markdown(result)
+        
+        # Add assistant response to chat history
+        chat_history = st.session_state.messages.append({"role": "assistant", "content": result})

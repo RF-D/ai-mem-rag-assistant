@@ -1,4 +1,5 @@
 config/.env
 utils/__pycache__
+utils/sitemaps
 tools/__pycache__
 my-app/

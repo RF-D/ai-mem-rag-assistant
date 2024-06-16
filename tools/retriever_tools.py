@@ -7,6 +7,16 @@ def retriever_tool(vectorstore, search_type="similarity", search_kwargs={"k": 25
     return retriever
 
 
+def retriever_tool_meta(vectorstore):
+    def retrieve_documents(query):
+        docs = vectorstore.similarity_search(query, k=8)
+        # Add source information to the documents' metadata
+        for doc in docs:
+            doc.metadata["source"] 
+        return docs
+    return retrieve_documents
+
+
 def retrieve_qa(llm, vectorstore):
     retriever = RetrievalQA.from_chain_type(llm=llm, chain_type='stuff', retriever=vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 25}))
     
