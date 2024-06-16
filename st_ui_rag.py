@@ -37,7 +37,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Create the LLM
-llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0.8)
+llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=1)
 
 
 # Setup VectorDB
@@ -133,7 +133,7 @@ _inputs = RunnableParallel(
 chain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
 
 
-#streamlit app
+#Streamlit app
 
 
 # Initialize chat history
@@ -145,9 +145,10 @@ st.title("Rag Chat")
 if "messages" not in st.session_state:
     st.session_state.messages = []
     
-#Display chat history    
+# Display chat history
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    avatar = "utils/images/user_avatar.png" if message["role"] == "user" else "utils/images/queryqueen.png"
+    with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
 #User input
@@ -156,7 +157,7 @@ user_input = st.chat_input("Write something here...", key="input")
 
 if user_input:
     #Display user input in chat message container
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar ="utils/images/user_avatar.png"):
         st.markdown(user_input)
 
     # Append to chat history
@@ -164,7 +165,7 @@ if user_input:
 
 
     # Display assistant response in chat message container
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar ='utils/images/queryqueen.png'):
         loading_message = st.empty()
         loading_message.markdown("Thinking...")
         
