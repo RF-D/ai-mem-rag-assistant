@@ -37,7 +37,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Create the LLM
-llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0.7)
+llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0.8)
 
 
 # Setup VectorDB
@@ -60,10 +60,12 @@ Standalone question:"""  # noqa: E501
 CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
 
 # RAG answer synthesis prompt
-template = """Answer the question based only on the following context:
+template = """Provide a detailed and comprehensive answer to the question, using the context provided. If the context is insufficient, indicate what additional information would be needed to answer the question.
 <context>
 {context}
-</context>"""
+</context>
+
+Question: {question}"""
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", template),
