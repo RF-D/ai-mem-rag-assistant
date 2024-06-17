@@ -1,4 +1,3 @@
-# modules/firecrawl_setup.py
 from langchain_community.document_loaders import FireCrawlLoader
 from utils.env_loader import load_env_vars
 

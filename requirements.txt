@@ -2,14 +2,25 @@
 #pip install -r requirements.txt
 
 langchain
+langgraph
+langchainhub
 langchain-anthropic
 langchain_community
+langchain-voyageai
+langchain-pinecone
+langchain-text-splitters
 firecrawl-py
 pinecone-client
-langchain-voyageai
 firecrawl-py
 voyageai 
 pinecone-client 
 datasets
-langchain-pinecone
-langchainhub
+scrapegraphai
+youtube-transcript-api
+pytube
+anthropic-tools
+tavily-python
+dotenv-python
+nest_asyncio
+lxml
+streamlit
