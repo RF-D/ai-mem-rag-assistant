@@ -37,7 +37,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Create the LLM
-llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=1)
+llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0.7)
 
 
 # Setup VectorDB
@@ -91,9 +91,11 @@ def _combine_documents(
 
 def _format_chat_history(chat_history: List[Tuple[str, str]]) -> List:
     buffer = []
-    for human, ai in chat_history:
-        buffer.append(HumanMessage(content=human))
-        buffer.append(AIMessage(content=ai))
+    for message in chat_history:
+        if message["role"] == "user":
+            buffer.append(HumanMessage(content=message["content"]))
+        elif message["role"] == "assistant":
+            buffer.append(AIMessage(content=message["content"]))
     return buffer
 
 
@@ -112,7 +114,8 @@ _search_query = RunnableBranch(
         ),  
         # Condense follow-up question and chat into a standalone_question
         RunnablePassthrough.assign(
-            chat_history=lambda x: _format_chat_history(x["chat_history"])
+            chat_history=lambda x: _format_chat_history(x["chat_history"][:-1] if x["chat_history"] and x["chat_history"][-1]["content"] == x["question"] else x["chat_history"]),
+            question=lambda x: x["question"]
         )
         | CONDENSE_QUESTION_PROMPT
         | llm
@@ -145,34 +148,36 @@ st.title("Rag Chat")
 if "messages" not in st.session_state:
     st.session_state.messages = []
     
-# Display chat history
+
 for message in st.session_state.messages:
     avatar = "utils/images/user_avatar.png" if message["role"] == "user" else "utils/images/queryqueen.png"
     with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
-#User input
+# User input
 user_input = st.chat_input("Write something here...", key="input")
 
-
 if user_input:
-    #Display user input in chat message container
-    with st.chat_message("user", avatar ="utils/images/user_avatar.png"):
+    # Display user input in chat message container
+    with st.chat_message("user", avatar="utils/images/user_avatar.png"):
         st.markdown(user_input)
 
     # Append to chat history
-    chat_history = st.session_state.messages.append({"role": "user", "content": user_input})
-
+    chat_history.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({"role": "user", "content": user_input})
 
     # Display assistant response in chat message container
-    with st.chat_message("assistant", avatar ='utils/images/queryqueen.png'):
+    with st.chat_message("assistant", avatar="utils/images/queryqueen.png"):
         loading_message = st.empty()
         loading_message.markdown("Thinking...")
-        
+
         result = ""
         for word in chain.invoke(input={"question": user_input, "chat_history": st.session_state.messages}):
             result += word
             loading_message.markdown(result)
-        
+
         # Add assistant response to chat history
-        chat_history = st.session_state.messages.append({"role": "assistant", "content": result})
+        chat_history.append({"role": "assistant", "content": result})
+        st.session_state.messages.append({"role": "assistant", "content": result})
+        
+     
