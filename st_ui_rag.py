@@ -1,4 +1,5 @@
 import os
+import logging
 import streamlit as st
 from operator import itemgetter
 from typing import List, Tuple
@@ -40,13 +41,16 @@ from functools import lru_cache
 from operator import itemgetter
 from dotenv import load_dotenv
 
-
+logging.basicConfig(level=logging.INFO)
 load_dotenv()
 
 # Create the LLM
 @lru_cache(maxsize=1)
 def load_llm():
-    return ChatAnthropic(model="claude-3-opus-20240229", temperature=0.8)
+    return ChatAnthropic(model="claude-3-opus-20240229", temperature=0.7,streaming=True)
+
+def load_llm_fast():
+    return ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.7,streaming=True)
 
 
 # Setup VectorDB
@@ -110,9 +114,9 @@ def _format_chat_history(chat_history: List[Tuple[str, str]], window_size: int =
     buffer = []
     for message in chat_history[-window_size:]:
         if message["role"] == "user":
-            buffer.append(HumanMessage(content=message["content"]))
+            buffer.append(HumanMessage(content=f"Human: {message['content']}"))
         elif message["role"] == "assistant":
-            buffer.append(AIMessage(content=message["content"]))
+            buffer.append(AIMessage(content=f"Assistant: {message['content']}"))
     return buffer
 
 
@@ -150,7 +154,7 @@ _inputs = RunnableParallel(
     }
 ).with_types(input_type=ChatHistory)
 
-chain = _inputs | ANSWER_PROMPT | load_llm() | StrOutputParser()
+chain = _inputs | ANSWER_PROMPT | load_llm_fast() | StrOutputParser(verbose=True)
 
 
 
@@ -281,16 +285,22 @@ if user_input:
     # Display assistant response in chat message container
     with st.chat_message("assistant", avatar="utils/images/queryqueen.png"):
         loading_message = st.empty()
+        result_container = st.empty()
+
+        # Display "Thinking..." message
         loading_message.markdown("Thinking...")
 
         result = ""
-        for word in chain.invoke(input={"question": user_input, "chat_history": st.session_state.messages}):
-            result += word
-            loading_message.markdown(result)
+        for token in chain.invoke(input={"question": user_input, "chat_history": st.session_state.messages}):
+            result += token
+            result_container.markdown(result)
+           
 
-        # Add assistant response to chat history
-        chat_history.append({"role": "assistant", "content": result})
-        st.session_state.messages.append({"role": "assistant", "content": result})
+        loading_message.empty()
+
+    # Add assistant response to chat history
+    chat_history.append({"role": "assistant", "content": result})
+    st.session_state.messages.append({"role": "assistant", "content": result})
 
         
 

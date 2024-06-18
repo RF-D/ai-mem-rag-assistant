@@ -16,7 +16,7 @@ def retriever_tool(vectorstore, search_type="similarity", search_kwargs={"k": 25
 def retriever_tool_meta(vectorstore):
     def retrieve_documents(query):
         # Retrieve a smaller number of documents initially
-        docs = vectorstore.similarity_search(query, k=10)  # Adjust the value of k as needed
+        docs = vectorstore.similarity_search(query, k=15)  # Adjust the value of k as needed
 
         # Add source information to the documents' metadata
         for doc in docs:
@@ -26,13 +26,13 @@ def retriever_tool_meta(vectorstore):
         reranker = VoyageAIRerank(
             model="rerank-lite-1",
             voyageai_api_key=os.getenv("VOYAGE_API_KEY"),
-            top_k=5  # Adjust the value of top_k as needed
+            top_k=6  # Adjust the value of top_k as needed
         )
 
         # Create a ContextualCompressionRetriever with the reranker
         compression_retriever = ContextualCompressionRetriever(
             base_compressor=reranker,
-            base_retriever=vectorstore.as_retriever(search_kwargs={"k": 10})  # Adjust the value of k as needed
+            base_retriever=vectorstore.as_retriever(search_kwargs={"k": 15})  # Adjust the value of k as needed
         )
 
         # Rerank and compress the retrieved documents using invoke
