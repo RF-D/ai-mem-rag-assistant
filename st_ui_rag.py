@@ -36,48 +36,60 @@ from tools.firecrawl_crawl_loader import crawl
 from tools.firecrawl_scrape_loader import scrape
 from scrape_sitemap import scrape_sitemap
 from tools.youtube_chat import youtube_chat
+from functools import lru_cache
+from operator import itemgetter
 from dotenv import load_dotenv
 
 
 load_dotenv()
 
 # Create the LLM
-llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0.8)
+@lru_cache(maxsize=1)
+def load_llm():
+    return ChatAnthropic(model="claude-3-opus-20240229", temperature=0.8)
 
 
 # Setup VectorDB
-embeddings = vo_embed()
 
-index_name = "langchain"
+@lru_cache(maxsize=1)
+def load_vectorstore():
+    embeddings = vo_embed()
+    index_name = "langchain"
+    return PineconeVectorStore.from_existing_index(embedding=embeddings, index_name=index_name)
 
-vectorstore = PineconeVectorStore.from_existing_index(
-    embedding=embeddings, index_name=index_name)
+vectorstore = load_vectorstore()
 
-retriever = retriever_tool_meta(vectorstore)
+# Setup retriever
+@lru_cache(maxsize=1)
+def load_retriever():
+    return retriever_tool_meta(vectorstore)
 
+retriever = load_retriever()
 
 # RAG setup
-_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
-Chat History:
-{chat_history}
-Follow Up Input: {question}
-Standalone question:"""  # noqa: E501
-CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
+@lru_cache(maxsize=1)
+def load_condense_question_prompt():
+    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+    Chat History:
+    {chat_history}
+    Follow Up Input: {question}
+    Standalone question:"""  # noqa: E501
+    return PromptTemplate.from_template(_template)
 
-# RAG answer synthesis prompt
-template = """Provide a detailed and comprehensive answer to the question, using the context provided. If the context is insufficient, indicate what additional information would be needed to answer the question.
-<context>
-{context}
-</context>
+CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
 
-Question: {question}"""
-ANSWER_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", template),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("user", "{question}"),
-    ]
-)
+@lru_cache(maxsize=1)
+def load_answer_prompt():
+    template = """Provide a detailed and comprehensive answer to the question, using the context provided. If the context is insufficient, indicate what additional information would be needed to answer the question."""
+    return ChatPromptTemplate.from_messages(
+        [
+            ("system", template),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("user", "{question}"),
+        ]
+    )
+
+ANSWER_PROMPT = load_answer_prompt()
 
 # Conversational Retrieval Chain
 DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(
@@ -94,7 +106,7 @@ def _combine_documents(
     return document_separator.join(doc_strings)
 
 
-def _format_chat_history(chat_history: List[Tuple[str, str]], window_size: int = 16) -> List:
+def _format_chat_history(chat_history: List[Tuple[str, str]], window_size: int = 12) -> List:
     buffer = []
     for message in chat_history[-window_size:]:
         if message["role"] == "user":
@@ -123,7 +135,7 @@ _search_query = RunnableBranch(
             question=lambda x: x["question"]
         )
         | CONDENSE_QUESTION_PROMPT
-        | llm
+        | load_llm()
         | StrOutputParser(),
     ),
     # Else, we have no chat history, so just pass through the question
@@ -138,7 +150,7 @@ _inputs = RunnableParallel(
     }
 ).with_types(input_type=ChatHistory)
 
-chain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
+chain = _inputs | ANSWER_PROMPT | load_llm() | StrOutputParser()
 
 
 
@@ -146,6 +158,11 @@ chain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
 
 # Set page configuration
 st.set_page_config(page_title="Rag Chat", page_icon=":guardsman:", layout="wide")
+@st.cache_resource
+def load_embedding_model():
+    return vo_embed()
+
+embeddings = load_embedding_model()
 
 # Create a sidebar
 sidebar = st.sidebar
@@ -255,7 +272,7 @@ if split_result:
 if user_input:
     # Display user input in chat message container
     with st.chat_message("user", avatar="utils/images/user_avatar.png"):
-        st.markdown(user_input)
+        st.text(user_input)
 
     # Append to chat history
     chat_history.append({"role": "user", "content": user_input})
