@@ -12,8 +12,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
-
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import (
@@ -32,7 +30,14 @@ from langchain_core.runnables import (
 from langchain_pinecone import PineconeVectorStore
 from tools.voyage_embeddings import vo_embed
 from tools.retriever_tools import retriever_tool, retriever_tool_meta
+from tools.firecrawl_scrape_loader import scrape
+from tools.text_splitter import split_md,split_text
+from tools.firecrawl_crawl_loader import crawl
+from tools.firecrawl_scrape_loader import scrape
+from scrape_sitemap import scrape_sitemap
+from tools.youtube_chat import youtube_chat
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -138,9 +143,47 @@ _inputs = RunnableParallel(
 chain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
 
 
+
 #Streamlit app
 
+# Set page configuration
+st.set_page_config(page_title="Rag Chat", page_icon=":guardsman:", layout="wide")
 
+
+
+# Create a sidebar
+sidebar = st.sidebar
+
+# Add sidebar title and description
+sidebar.title("Rag Chat Tools")
+sidebar.write("Ingest Knowledge here with your preferred method")
+
+
+# Create a dropdown menu to select the function to call
+functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat}
+selected_function = st.sidebar.selectbox("Select a function", list(functions.keys()))
+
+url = st.sidebar.text_input("Enter a URL")
+
+split_result = None
+
+if st.sidebar.button("Process"):
+    if url:
+        if selected_function == "Sitemap Scraper":
+            # Call the scrape_sitemap function without splitting the result
+            fn_result = scrape_sitemap(url)
+        elif selected_function == "Youtube Chat":
+            # Call the scrape_sitemap function without splitting the result
+            fn_result = youtube_chat(url)
+            split_result = split_text(fn_result)
+        else:
+            # Call the selected function with the provided URL and split the result
+            fn_result = functions[selected_function](url)
+            split_result = split_md(fn_result)
+    else:
+        st.warning("Please enter a URL.")
+
+    
 # Initialize chat history
 chat_history = []
 
@@ -158,6 +201,12 @@ for message in st.session_state.messages:
 
 # User input
 user_input = st.chat_input("Write something here...", key="input")
+
+# Display the scrape result below the user input
+if split_result:
+    with st.expander("Scrape Result", expanded=False):
+        st.write(split_result)
+
 
 if user_input:
     # Display user input in chat message container
@@ -181,5 +230,7 @@ if user_input:
         # Add assistant response to chat history
         chat_history.append({"role": "assistant", "content": result})
         st.session_state.messages.append({"role": "assistant", "content": result})
+
         
+
      

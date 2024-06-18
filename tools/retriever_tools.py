@@ -9,7 +9,7 @@ def retriever_tool(vectorstore, search_type="similarity", search_kwargs={"k": 25
 
 def retriever_tool_meta(vectorstore):
     def retrieve_documents(query):
-        docs = vectorstore.similarity_search(query, k=8)
+        docs = vectorstore.similarity_search(query, k=24)
         # Add source information to the documents' metadata
         for doc in docs:
             doc.metadata["source"] 
