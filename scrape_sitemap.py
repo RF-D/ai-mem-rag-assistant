@@ -6,8 +6,8 @@ from tools.voyage_embeddings import vo_embed
 from langchain_pinecone import PineconeVectorStore
 
 
-def scrape_sitemap(url):
-    #Provide sitemap url here
+def scrape_sitemap(url, index_name):
+    # Provide sitemap url here
     site = get_xml(url)
 
     docs = split_text(site)
@@ -18,6 +18,6 @@ def scrape_sitemap(url):
     docs_with_progress = tqdm(docs, desc="Loading documents")
 
     PineconeVectorStore.from_documents(
-                documents=docs_with_progress, embedding=embeddings, index_name="langchain")
+        documents=docs_with_progress, embedding=embeddings, index_name=index_name)
 
 

@@ -167,27 +167,41 @@ url = st.sidebar.text_input("Enter a URL")
 
 split_result = None
 
+# Show the input field for index name only if split_result is not empty
 if st.sidebar.button("Submit"):
     if url:
         if selected_function == "Sitemap Scraper":
-            # Call the scrape_sitemap function without splitting the result
-            fn_result = scrape_sitemap(url)
-            st.success("Results embedded successfully!")
+            # Check if index_name exists in the session state
+            if "index_name" not in st.session_state:
+                st.session_state.index_name = ""
+
+            # Display the index name input field and update the session state
+            st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
+
+            if st.sidebar.button("Embed Results"):
+                try:
+                    # Call the scrape_sitemap function with the index name
+                    scrape_sitemap(url, st.session_state.index_name)
+                    st.success("Results embedded successfully!")
+                except Exception as e:
+                    st.error(f"Embedding failed: {str(e)}")
+                    st.error("Please check the error message and try again.")
         elif selected_function == "YouTube Chat":
             # Call the scrape_sitemap function without splitting the result
             fn_result = youtube_chat(url)
             split_result = split_text(fn_result)
+            # Store the split_result in session state
+            st.session_state.split_result = split_result
         else:
             # Call the selected function with the provided URL and split the result
             fn_result = functions[selected_function](url)
             split_result = split_md(fn_result)
-
-        # Store the split_result in session state
-        st.session_state.split_result = split_result
+            # Store the split_result in session state
+            st.session_state.split_result = split_result
     else:
         st.warning("Please enter a valid URL.")
 
-# Check if split_result exists in the session state
+# Check if split_result exists in the session state and the selected function is not "Sitemap Scraper"
 if "split_result" in st.session_state:
     split_result = st.session_state.split_result
 
@@ -221,7 +235,7 @@ if "split_result" in st.session_state:
         if "index_name" in st.session_state:
             del st.session_state.index_name
 else:
-    st.sidebar.info("Click 'Submit' to start gathering data.")
+    st.sidebar.info("Click 'Submit' to start embedding.")
     
 # Initialize chat history
 chat_history = []
