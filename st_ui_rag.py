@@ -87,18 +87,16 @@ DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(
 def _combine_documents(
     docs, document_prompt=DEFAULT_DOCUMENT_PROMPT, document_separator="\n\n"
 ):
-    doc_strings = []
-    for doc in docs:
-        source = doc.metadata.get("source", "Unknown")
-        doc_string = format_document(doc, document_prompt)
-        doc_string += f"\nSource: {source}"
-        doc_strings.append(doc_string)
+    doc_strings = [
+        f"{format_document(doc, document_prompt)}\nSource: {doc.metadata.get('source', 'Unknown')}"
+        for doc in docs
+    ]
     return document_separator.join(doc_strings)
 
 
-def _format_chat_history(chat_history: List[Tuple[str, str]]) -> List:
+def _format_chat_history(chat_history: List[Tuple[str, str]], window_size: int = 16) -> List:
     buffer = []
-    for message in chat_history:
+    for message in chat_history[-window_size:]:
         if message["role"] == "user":
             buffer.append(HumanMessage(content=message["content"]))
         elif message["role"] == "assistant":
