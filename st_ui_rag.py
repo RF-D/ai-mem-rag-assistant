@@ -144,12 +144,10 @@ chain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
 
 
 
-#Streamlit app
+# Streamlit app
 
 # Set page configuration
 st.set_page_config(page_title="Rag Chat", page_icon=":guardsman:", layout="wide")
-
-
 
 # Create a sidebar
 sidebar = st.sidebar
@@ -157,7 +155,6 @@ sidebar = st.sidebar
 # Add sidebar title and description
 sidebar.title("Rag Chat Tools")
 sidebar.write("Ingest Knowledge here with your preferred method")
-
 
 # Create a dropdown menu to select the function to call
 functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat}
@@ -167,25 +164,32 @@ url = st.sidebar.text_input("Enter a URL")
 
 split_result = None
 
-# Show the input field for index name only if split_result is not empty
+# Show the input field for index name only if the selected function is "Sitemap Scraper"
+if selected_function == "Sitemap Scraper":
+    # Check if index_name exists in the session state
+    if "index_name" not in st.session_state:
+        st.session_state.index_name = ""
+
+    # Display the index name input field and update the session state
+    st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
+
+
 if st.sidebar.button("Submit"):
     if url:
         if selected_function == "Sitemap Scraper":
-            # Check if index_name exists in the session state
-            if "index_name" not in st.session_state:
-                st.session_state.index_name = ""
+            try:
+                # Display a progress bar in the sidebar while the function is running
+                progress_bar = st.sidebar.progress(0)
 
-            # Display the index name input field and update the session state
-            st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
+                def progress_callback(current, total):
+                    progress_bar.progress(current / total)
 
-            if st.sidebar.button("Embed Results"):
-                try:
-                    # Call the scrape_sitemap function with the index name
-                    scrape_sitemap(url, st.session_state.index_name)
-                    st.success("Results embedded successfully!")
-                except Exception as e:
-                    st.error(f"Embedding failed: {str(e)}")
-                    st.error("Please check the error message and try again.")
+                scrape_sitemap(url, st.session_state.index_name, progress_callback)
+
+                st.sidebar.success("Sitemap scraped and results embedded successfully!")
+            except Exception as e:
+                st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
+                st.sidebar.error("Please check the error message and try again.")
         elif selected_function == "YouTube Chat":
             # Call the scrape_sitemap function without splitting the result
             fn_result = youtube_chat(url)
@@ -202,7 +206,7 @@ if st.sidebar.button("Submit"):
         st.warning("Please enter a valid URL.")
 
 # Check if split_result exists in the session state and the selected function is not "Sitemap Scraper"
-if "split_result" in st.session_state:
+if "split_result" in st.session_state and selected_function != "Sitemap Scraper":
     split_result = st.session_state.split_result
 
     # Show the input field for index name only if split_result is not empty
@@ -223,19 +227,8 @@ if "split_result" in st.session_state:
             except Exception as e:
                 st.sidebar.error(f"Embedding failed: {str(e)}")
                 st.sidebar.error("Please check the error message and try again.")
-
-        # Clear the index name from session state if there are no results to embed
-        if not split_result:
-            if "index_name" in st.session_state:
-                del st.session_state.index_name
     else:
         st.warning("No results to embed.")
-
-        # Clear the index name from session state if there are no results to embed
-        if "index_name" in st.session_state:
-            del st.session_state.index_name
-else:
-    st.sidebar.info("Click 'Submit' to start embedding.")
     
 # Initialize chat history
 chat_history = []
