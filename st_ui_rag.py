@@ -1,9 +1,9 @@
 import os
-import logging
+import tempfile
 import streamlit as st
 from operator import itemgetter
 from typing import List, Tuple
-
+from tools.doc_loader import load_documents
 from langchain_anthropic import ChatAnthropic
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
 from langchain.chains import ConversationChain
@@ -41,16 +41,16 @@ from functools import lru_cache
 from operator import itemgetter
 from dotenv import load_dotenv
 
-logging.basicConfig(level=logging.INFO)
+
 load_dotenv()
 
 # Create the LLM
 @lru_cache(maxsize=1)
 def load_llm():
-    return ChatAnthropic(model="claude-3-opus-20240229", temperature=0.7,streaming=True)
+    return ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.9,streaming=True)
 
 def load_llm_fast():
-    return ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.7,streaming=True)
+    return ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.8,streaming=True)
 
 
 # Setup VectorDB
@@ -84,7 +84,10 @@ CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
 
 @lru_cache(maxsize=1)
 def load_answer_prompt():
-    template = """Provide a detailed and comprehensive answer to the question, using the context provided. If the context is insufficient, indicate what additional information would be needed to answer the question."""
+    template = """Provide a detailed and comprehensive answer to the question, using the context provided. If the context is insufficient, indicate what additional information would be needed to answer the question.
+    
+    Context: {context}
+    """
     return ChatPromptTemplate.from_messages(
         [
             ("system", template),
@@ -110,7 +113,7 @@ def _combine_documents(
     return document_separator.join(doc_strings)
 
 
-def _format_chat_history(chat_history: List[Tuple[str, str]], window_size: int = 12) -> List:
+def _format_chat_history(chat_history: List[Tuple[str, str]], window_size: int = 13) -> List:
     buffer = []
     for message in chat_history[-window_size:]:
         if message["role"] == "user":
@@ -162,11 +165,14 @@ chain = _inputs | ANSWER_PROMPT | load_llm_fast() | StrOutputParser(verbose=True
 
 # Set page configuration
 st.set_page_config(page_title="Rag Chat", page_icon=":guardsman:", layout="wide")
+
+# Load and cache the embedding model for vector embeddings.
 @st.cache_resource
 def load_embedding_model():
     return vo_embed()
 
 embeddings = load_embedding_model()
+
 
 # Create a sidebar
 sidebar = st.sidebar
@@ -174,6 +180,43 @@ sidebar = st.sidebar
 # Add sidebar title and description
 sidebar.title("Rag Chat Tools")
 sidebar.write("Ingest Knowledge here with your preferred method")
+
+
+# File Uploader
+with st.sidebar.expander("Upload and Embed Documents"):
+    upload_method = st.radio("Upload Method", ["File", "Text"])
+
+    loaded_docs = None
+    if upload_method == "File":
+        uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
+        if uploaded_file:
+            # Save the uploaded file to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}') as temp_file:
+                temp_file.write(uploaded_file.getvalue())
+                temp_file_path = temp_file.name
+
+            # Load documents from the temporary file
+            loaded_docs = load_documents(file_path=temp_file_path)
+
+            # Clean up the temporary file
+            os.remove(temp_file_path)
+    else:
+        text_input = st.text_area("Paste your text here")
+        if text_input:
+            loaded_docs = load_documents(text=text_input)
+
+    if st.button("Embed Documents"):
+        if loaded_docs:
+            try:
+                embeddings = vo_embed()
+                PineconeVectorStore.from_documents(
+                    documents=loaded_docs, embedding=embeddings, index_name="langchain")
+                st.success("Embedding completed successfully!")
+            except Exception as e:
+                st.error(f"Embedding failed: {str(e)}")
+                st.error("Please check the error message and try again.")
+        else:
+            st.warning("No documents to embed.")
 
 # Create a dropdown menu to select the function to call
 functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat}
