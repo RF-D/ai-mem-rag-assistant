@@ -182,41 +182,7 @@ sidebar.title("Rag Chat Tools")
 sidebar.write("Ingest Knowledge here with your preferred method")
 
 
-# File Uploader
-with st.sidebar.expander("Upload and Embed Documents"):
-    upload_method = st.radio("Upload Method", ["File", "Text"])
 
-    loaded_docs = None
-    if upload_method == "File":
-        uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
-        if uploaded_file:
-            # Save the uploaded file to a temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}') as temp_file:
-                temp_file.write(uploaded_file.getvalue())
-                temp_file_path = temp_file.name
-
-            # Load documents from the temporary file
-            loaded_docs = load_documents(file_path=temp_file_path)
-
-            # Clean up the temporary file
-            os.remove(temp_file_path)
-    else:
-        text_input = st.text_area("Paste your text here")
-        if text_input:
-            loaded_docs = load_documents(text=text_input)
-
-    if st.button("Embed Documents"):
-        if loaded_docs:
-            try:
-                embeddings = vo_embed()
-                PineconeVectorStore.from_documents(
-                    documents=loaded_docs, embedding=embeddings, index_name="langchain")
-                st.success("Embedding completed successfully!")
-            except Exception as e:
-                st.error(f"Embedding failed: {str(e)}")
-                st.error("Please check the error message and try again.")
-        else:
-            st.warning("No documents to embed.")
 
 # Create a dropdown menu to select the function to call
 functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat}
@@ -291,6 +257,41 @@ if "split_result" in st.session_state and selected_function != "Sitemap Scraper"
                 st.sidebar.error("Please check the error message and try again.")
     else:
         st.warning("No results to embed.")
+# File Uploader
+with st.sidebar.expander("Upload and Embed Documents"):
+    upload_method = st.radio("Upload Method", ["File", "Text"])
+
+    loaded_docs = None
+    if upload_method == "File":
+        uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
+        if uploaded_file:
+            # Save the uploaded file to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}') as temp_file:
+                temp_file.write(uploaded_file.getvalue())
+                temp_file_path = temp_file.name
+
+            # Load documents from the temporary file
+            loaded_docs = load_documents(file_path=temp_file_path)
+
+            # Clean up the temporary file
+            os.remove(temp_file_path)
+    else:
+        text_input = st.text_area("Paste your text here")
+        if text_input:
+            loaded_docs = load_documents(text=text_input)
+
+    if st.button("Embed Documents"):
+        if loaded_docs:
+            try:
+                embeddings = vo_embed()
+                PineconeVectorStore.from_documents(
+                    documents=loaded_docs, embedding=embeddings, index_name="langchain")
+                st.success("Embedding completed successfully!")
+            except Exception as e:
+                st.error(f"Embedding failed: {str(e)}")
+                st.error("Please check the error message and try again.")
+        else:
+            st.warning("No documents to embed.")
     
 # Initialize chat history
 chat_history = []
