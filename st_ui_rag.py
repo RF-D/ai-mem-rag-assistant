@@ -117,9 +117,9 @@ def _format_chat_history(chat_history: List[Tuple[str, str]], window_size: int =
     buffer = []
     for message in chat_history[-window_size:]:
         if message["role"] == "user":
-            buffer.append(HumanMessage(content=f"Human: {message['content']}"))
+            buffer.append(HumanMessage(content=message["content"]))
         elif message["role"] == "assistant":
-            buffer.append(AIMessage(content=f"Assistant: {message['content']}"))
+            buffer.append(AIMessage(content=message["content"]))
     return buffer
 
 
@@ -152,7 +152,7 @@ _search_query = RunnableBranch(
 _inputs = RunnableParallel(
     {
         "question": lambda x: x["question"],
-        "chat_history": lambda x: _format_chat_history(x["chat_history"]),
+        "chat_history": lambda x: _format_chat_history(x["chat_history"][:-1] if x["chat_history"] and x["chat_history"][-1]["content"] == x["question"] else x["chat_history"]),
         "context": _search_query | retriever | _combine_documents,
     }
 ).with_types(input_type=ChatHistory)
