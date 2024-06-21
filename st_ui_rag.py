@@ -1,8 +1,9 @@
+
 import os
 import tempfile
 import streamlit as st
 from operator import itemgetter
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from tools.doc_loader import load_documents
 from langchain_anthropic import ChatAnthropic
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
@@ -44,14 +45,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+
 # Create the LLM
 @lru_cache(maxsize=1)
-def load_llm():
-    return ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.9,streaming=True)
+def load_llms():
+    return {
+        "default": ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.7, streaming=True),
+        "fast": ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.8, streaming=True)
+    }
 
-def load_llm_fast():
-    return ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.8,streaming=True)
+llms = load_llms()
 
+def count_tokens(text: str, llm_type: str = "default") -> int:
+    return llms[llm_type].get_num_tokens(text)
 
 # Setup VectorDB
 
@@ -113,9 +120,9 @@ def _combine_documents(
     return document_separator.join(doc_strings)
 
 
-def _format_chat_history(chat_history: List[Tuple[str, str]], window_size: int = 13) -> List:
+def _format_chat_history(chat_history: List[Tuple[str, str]]) -> List:
     buffer = []
-    for message in chat_history[-window_size:]:
+    for message in chat_history:
         if message["role"] == "user":
             buffer.append(HumanMessage(content=message["content"]))
         elif message["role"] == "assistant":
@@ -142,7 +149,7 @@ _search_query = RunnableBranch(
             question=lambda x: x["question"]
         )
         | CONDENSE_QUESTION_PROMPT
-        | load_llm()
+        | llms["default"]
         | StrOutputParser(),
     ),
     # Else, we have no chat history, so just pass through the question
@@ -157,7 +164,7 @@ _inputs = RunnableParallel(
     }
 ).with_types(input_type=ChatHistory)
 
-chain = _inputs | ANSWER_PROMPT | load_llm_fast() | StrOutputParser(verbose=True)
+chain = _inputs | ANSWER_PROMPT | llms["fast"] | StrOutputParser(verbose=True)
 
 
 
@@ -292,19 +299,70 @@ with st.sidebar.expander("Upload and Embed Documents"):
                 st.error("Please check the error message and try again.")
         else:
             st.warning("No documents to embed.")
+
 # Reset chat history button
 if st.sidebar.button("Reset Chat History"):
     st.session_state.messages = []
-    
+
+def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) -> Tuple[List[Dict[str, str]], int]:
+    trimmed_messages = []
+    total_tokens = 0
+    user_message_found = False
+
+    for message in reversed(messages):
+        message_tokens = count_tokens(message["content"])
+
+        if total_tokens + message_tokens > max_tokens and user_message_found:
+            break
+
+        total_tokens += message_tokens
+        trimmed_messages.insert(0, message)  # Insert at the beginning to maintain order
+
+        if message["role"] == "user":
+            user_message_found = True
+
+    # Ensure at least one user message is included
+    if not user_message_found and messages:
+        for message in messages:
+            if message["role"] == "user":
+                if trimmed_messages:
+                    trimmed_messages.insert(0, message)  # Insert at the beginning
+                else:
+                    trimmed_messages.append(message)
+                total_tokens += count_tokens(message["content"])
+                break
+
+    # If still no user message, add a dummy user message
+    if not trimmed_messages or trimmed_messages[0]["role"] != "user":
+        dummy_message = {"role": "user", "content": "Start of conversation"}
+        trimmed_messages.insert(0, dummy_message)
+        total_tokens += count_tokens(dummy_message["content"])
+
+    return trimmed_messages, total_tokens
+
+MAX_HISTORY_TOKENS = 100000
+
+def calculate_total_tokens(messages: List[Dict[str, str]]) -> int:
+    return sum(count_tokens(message["content"]) for message in messages)
 # Initialize chat history
 chat_history = []
 
+def update_token_count(new_tokens):
+    st.session_state.total_tokens += new_tokens
+
 st.title("Rag Chat")
 
+
+    
+    
 #Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "total_tokens" not in st.session_state:
+    st.session_state.total_tokens = 0
     
+
+
 
 for message in st.session_state.messages:
     avatar = "utils/images/user_avatar.png" if message["role"] == "user" else "utils/images/queryqueen.png"
@@ -327,26 +385,47 @@ if user_input:
 
     # Append to chat history
     st.session_state.messages.append({"role": "user", "content": user_input})
+    
+    # Trim chat history before sending to the model
+    trimmed_history, history_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
+    
+    # After processing user input
+    user_tokens = count_tokens(user_input)
+    update_token_count(user_tokens)
+    
 
     # Display assistant response in chat message container
     with st.chat_message("assistant", avatar="utils/images/queryqueen.png"):
         loading_message = st.empty()
-        result_container = st.empty()
-
         # Display "Thinking..." message
         loading_message.markdown("Thinking...")
 
         result = ""
-        for token in chain.invoke(input={"question": user_input, "chat_history": st.session_state.messages}):
+        for token in chain.invoke(input={"question": user_input, "chat_history": trimmed_history}):
             result += token
-            result_container.markdown(result)
+            loading_message.markdown(result)
            
 
-        loading_message.empty()
+        
 
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": result})
-
+    
+    # After getting the assistant's response
+    assistant_tokens = count_tokens(result)
+    update_token_count(assistant_tokens)
+    
+    
+    
+    
+   # Trim chat history if needed
+    if st.session_state.total_tokens > MAX_HISTORY_TOKENS:
+        st.session_state.messages, new_total_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
+        st.session_state.total_tokens = new_total_tokens
+    
+    
+st.sidebar.write(f"Current token count: {st.session_state.total_tokens}")
+st.sidebar.write(f"Max token count: {MAX_HISTORY_TOKENS}")
         
 
      
