@@ -7,9 +7,11 @@ firecrawl_api_key = load_env_vars()[2]
 # FireCrawl Setup
 crawl_params = {
     'crawlerOptions': {
-        'excludes': ['blog/*'],
+        'excludes': [],
         'includes': [],  # leave empty for all pages
         'pagelimit': 1000,
+        'crawldelay': 0.5,
+        
     }
 
 }

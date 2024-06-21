@@ -5,17 +5,21 @@ from tools.retriever_tools import retriever_tool
 from tools.voyage_embeddings import vo_embed
 from langchain_pinecone import PineconeVectorStore
 
-#Provide sitemap url here
-site = get_xml("https://docs.streamlit.io/sitemap.xml")
 
-docs = split_text(site)
+def scrape_sitemap(url, index_name, progress_callback):
+    # Provide sitemap url here
+    site = get_xml(url)
 
-embeddings = vo_embed()
+    docs = split_text(site)
 
-# Wrap the documents with tqdm
-docs_with_progress = tqdm(docs, desc="Loading documents")
+    embeddings = vo_embed()
 
-PineconeVectorStore.from_documents(
-            documents=docs_with_progress, embedding=embeddings, index_name="langchain")
+    total_docs = len(docs)
+    for i, doc in enumerate(docs):
+        PineconeVectorStore.from_documents(
+            documents=[doc], embedding=embeddings, index_name=index_name)
+
+        # Update the progress bar
+        progress_callback(i + 1, total_docs)
 
 

@@ -1,8 +1,10 @@
+
 import os
+import tempfile
 import streamlit as st
 from operator import itemgetter
-from typing import List, Tuple
-
+from typing import List, Tuple, Dict
+from tools.doc_loader import load_documents
 from langchain_anthropic import ChatAnthropic
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
 from langchain.chains import ConversationChain
@@ -12,8 +14,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
-
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import (
@@ -32,47 +32,78 @@ from langchain_core.runnables import (
 from langchain_pinecone import PineconeVectorStore
 from tools.voyage_embeddings import vo_embed
 from tools.retriever_tools import retriever_tool, retriever_tool_meta
+from tools.firecrawl_scrape_loader import scrape
+from tools.text_splitter import split_md,split_text
+from tools.firecrawl_crawl_loader import crawl
+from tools.firecrawl_scrape_loader import scrape
+from scrape_sitemap import scrape_sitemap
+from tools.youtube_chat import youtube_chat
+from functools import lru_cache
+from operator import itemgetter
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
-# Create the LLM
-llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0.8)
 
+
+# Create the LLM
+@lru_cache(maxsize=1)
+def load_llms():
+    return {
+        "default": ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.7, streaming=True),
+        "fast": ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.8, streaming=True)
+    }
+
+llms = load_llms()
+
+def count_tokens(text: str, llm_type: str = "default") -> int:
+    return llms[llm_type].get_num_tokens(text)
 
 # Setup VectorDB
-embeddings = vo_embed()
 
-index_name = "langchain"
+@lru_cache(maxsize=1)
+def load_vectorstore():
+    embeddings = vo_embed()
+    index_name = "langchain"
+    return PineconeVectorStore.from_existing_index(embedding=embeddings, index_name=index_name)
 
-vectorstore = PineconeVectorStore.from_existing_index(
-    embedding=embeddings, index_name=index_name)
+vectorstore = load_vectorstore()
 
-retriever = retriever_tool_meta(vectorstore)
+# Setup retriever
+@lru_cache(maxsize=1)
+def load_retriever():
+    return retriever_tool_meta(vectorstore)
 
+retriever = load_retriever()
 
 # RAG setup
-_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
-Chat History:
-{chat_history}
-Follow Up Input: {question}
-Standalone question:"""  # noqa: E501
-CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
+@lru_cache(maxsize=1)
+def load_condense_question_prompt():
+    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+    Chat History:
+    {chat_history}
+    Follow Up Input: {question}
+    Standalone question:"""  # noqa: E501
+    return PromptTemplate.from_template(_template)
 
-# RAG answer synthesis prompt
-template = """Provide a detailed and comprehensive answer to the question, using the context provided. If the context is insufficient, indicate what additional information would be needed to answer the question.
-<context>
-{context}
-</context>
+CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
 
-Question: {question}"""
-ANSWER_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", template),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("user", "{question}"),
-    ]
-)
+@lru_cache(maxsize=1)
+def load_answer_prompt():
+    template = """Provide a detailed and comprehensive answer to the question, using the context provided. If the context is insufficient, indicate what additional information would be needed to answer the question.
+    
+    Context: {context}
+    """
+    return ChatPromptTemplate.from_messages(
+        [
+            ("system", template),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("user", "{question}"),
+        ]
+    )
+
+ANSWER_PROMPT = load_answer_prompt()
 
 # Conversational Retrieval Chain
 DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(
@@ -82,12 +113,10 @@ DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(
 def _combine_documents(
     docs, document_prompt=DEFAULT_DOCUMENT_PROMPT, document_separator="\n\n"
 ):
-    doc_strings = []
-    for doc in docs:
-        source = doc.metadata.get("source", "Unknown")
-        doc_string = format_document(doc, document_prompt)
-        doc_string += f"\nSource: {source}"
-        doc_strings.append(doc_string)
+    doc_strings = [
+        f"{format_document(doc, document_prompt)}\nSource: {doc.metadata.get('source', 'Unknown')}"
+        for doc in docs
+    ]
     return document_separator.join(doc_strings)
 
 
@@ -120,7 +149,7 @@ _search_query = RunnableBranch(
             question=lambda x: x["question"]
         )
         | CONDENSE_QUESTION_PROMPT
-        | llm
+        | llms["default"]
         | StrOutputParser(),
     ),
     # Else, we have no chat history, so just pass through the question
@@ -130,26 +159,218 @@ _search_query = RunnableBranch(
 _inputs = RunnableParallel(
     {
         "question": lambda x: x["question"],
-        "chat_history": lambda x: _format_chat_history(x["chat_history"]),
+        "chat_history": lambda x: _format_chat_history(x["chat_history"][:-1] if x["chat_history"] and x["chat_history"][-1]["content"] == x["question"] else x["chat_history"]),
         "context": _search_query | retriever | _combine_documents,
     }
 ).with_types(input_type=ChatHistory)
 
-chain = _inputs | ANSWER_PROMPT | llm | StrOutputParser()
+chain = _inputs | ANSWER_PROMPT | llms["fast"] | StrOutputParser(verbose=True)
 
 
-#Streamlit app
+
+# Streamlit app
+
+# Set page configuration
+st.set_page_config(page_title="Rag Chat", page_icon=":guardsman:", layout="wide")
+
+# Load and cache the embedding model for vector embeddings.
+@st.cache_resource
+def load_embedding_model():
+    return vo_embed()
+
+embeddings = load_embedding_model()
 
 
+# Create a sidebar
+sidebar = st.sidebar
+
+# Add sidebar title and description
+sidebar.title("Rag Chat Tools")
+sidebar.write("Ingest Knowledge here with your preferred method")
+
+
+
+
+# Create a dropdown menu to select the function to call
+functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat}
+selected_function = st.sidebar.selectbox("Select a function", list(functions.keys()))
+
+url = st.sidebar.text_input("Enter a URL")
+
+split_result = None
+
+# Show the input field for index name only if the selected function is "Sitemap Scraper"
+if selected_function == "Sitemap Scraper":
+    # Check if index_name exists in the session state
+    if "index_name" not in st.session_state:
+        st.session_state.index_name = ""
+
+    # Display the index name input field and update the session state
+    st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
+
+
+if st.sidebar.button("Submit"):
+    if url:
+        if selected_function == "Sitemap Scraper":
+            try:
+                # Display a progress bar in the sidebar while the function is running
+                progress_bar = st.sidebar.progress(0)
+
+                def progress_callback(current, total):
+                    progress_bar.progress(current / total)
+
+                scrape_sitemap(url, st.session_state.index_name, progress_callback)
+
+                st.sidebar.success("Sitemap scraped and results embedded successfully!")
+            except Exception as e:
+                st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
+                st.sidebar.error("Please check the error message and try again.")
+        elif selected_function == "YouTube Chat":
+            # Call the scrape_sitemap function without splitting the result
+            fn_result = youtube_chat(url)
+            split_result = split_text(fn_result)
+            # Store the split_result in session state
+            st.session_state.split_result = split_result
+        else:
+            # Call the selected function with the provided URL and split the result
+            fn_result = functions[selected_function](url)
+            split_result = split_md(fn_result)
+            # Store the split_result in session state
+            st.session_state.split_result = split_result
+    else:
+        st.warning("Please enter a valid URL.")
+
+# Check if split_result exists in the session state and the selected function is not "Sitemap Scraper"
+if "split_result" in st.session_state and selected_function != "Sitemap Scraper":
+    split_result = st.session_state.split_result
+
+    # Show the input field for index name only if split_result is not empty
+    if split_result:
+        # Check if index_name exists in the session state
+        if "index_name" not in st.session_state:
+            st.session_state.index_name = ""
+
+        # Display the index name input field and update the session state
+        st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
+
+        if st.sidebar.button("Add to Memory"):
+            try:
+                embeddings = vo_embed()
+                PineconeVectorStore.from_documents(
+                    documents=split_result, embedding=embeddings, index_name=st.session_state.index_name)
+                st.sidebar.success("Embedding completed successfully!")
+            except Exception as e:
+                st.sidebar.error(f"Embedding failed: {str(e)}")
+                st.sidebar.error("Please check the error message and try again.")
+    else:
+        st.warning("No results to embed.")
+# File Uploader
+with st.sidebar.expander("Upload and Embed Documents"):
+    upload_method = st.radio("Upload Method", ["File", "Text"])
+
+    loaded_docs = None
+    if upload_method == "File":
+        uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
+        if uploaded_file:
+            # Save the uploaded file to a temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}') as temp_file:
+                temp_file.write(uploaded_file.getvalue())
+                temp_file_path = temp_file.name
+
+            # Load documents from the temporary file
+            loaded_docs = load_documents(file_path=temp_file_path)
+
+            # Clean up the temporary file
+            os.remove(temp_file_path)
+    else:
+        text_input = st.text_area("Paste your text here")
+        if text_input:
+            loaded_docs = load_documents(text=text_input)
+
+    if st.button("Embed Documents"):
+        if loaded_docs:
+            try:
+                embeddings = vo_embed()
+                PineconeVectorStore.from_documents(
+                    documents=loaded_docs, embedding=embeddings, index_name="langchain")
+                st.success("Embedding completed successfully!")
+            except Exception as e:
+                st.error(f"Embedding failed: {str(e)}")
+                st.error("Please check the error message and try again.")
+        else:
+            st.warning("No documents to embed.")
+
+# Reset chat history button
+if st.sidebar.button("Reset Chat History"):
+    st.session_state.messages = []
+
+def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) -> Tuple[List[Dict[str, str]], int]:
+    trimmed_messages = []
+    total_prompt_tokens = 0
+    user_message_found = False
+
+    for message in reversed(messages):
+        message_tokens = count_tokens(message["content"])
+
+        if total_prompt_tokens + message_tokens > max_tokens and user_message_found:
+            break
+
+        total_prompt_tokens += message_tokens
+        trimmed_messages.insert(0, message)
+
+        if message["role"] == "user":
+            user_message_found = True
+
+    # Ensure at least one user message is included
+    if not user_message_found and messages:
+        for message in messages:
+            if message["role"] == "user":
+                if trimmed_messages:
+                    trimmed_messages.insert(0, message)
+                else:
+                    trimmed_messages.append(message)
+                total_prompt_tokens += count_tokens(message["content"])
+                break
+
+    # If still no user message, add a dummy user message
+    if not trimmed_messages or trimmed_messages[0]["role"] != "user":
+        dummy_message = {"role": "user", "content": "Start of conversation"}
+        trimmed_messages.insert(0, dummy_message)
+        total_prompt_tokens += count_tokens(dummy_message["content"])
+
+    return trimmed_messages, total_prompt_tokens
+
+MAX_HISTORY_TOKENS = 100000
+
+def calculate_total_tokens(messages: List[Dict[str, str]]) -> int:
+    return sum(count_tokens(message["content"]) for message in messages)
 # Initialize chat history
 chat_history = []
 
+def update_token_count(prompt_tokens, completion_tokens):
+    st.session_state.total_prompt_tokens += prompt_tokens
+    st.session_state.total_completion_tokens += completion_tokens
+    st.session_state.total_tokens = st.session_state.total_prompt_tokens + st.session_state.total_completion_tokens
+
 st.title("Rag Chat")
 
+
+    
+    
 #Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
     
+# Initialize token counters in session state
+if "total_prompt_tokens" not in st.session_state:
+    st.session_state.total_prompt_tokens = 0
+if "total_completion_tokens" not in st.session_state:
+    st.session_state.total_completion_tokens = 0
+if "total_tokens" not in st.session_state:
+    st.session_state.total_tokens = 0
+    
+
+
 
 for message in st.session_state.messages:
     avatar = "utils/images/user_avatar.png" if message["role"] == "user" else "utils/images/queryqueen.png"
@@ -159,27 +380,66 @@ for message in st.session_state.messages:
 # User input
 user_input = st.chat_input("Write something here...", key="input")
 
+# Display the scrape result below the user input
+if split_result:
+    with st.expander("Scrape Result", expanded=False):
+        st.write(split_result)
+
+#Chat Container
 if user_input:
     # Display user input in chat message container
     with st.chat_message("user", avatar="utils/images/user_avatar.png"):
-        st.markdown(user_input)
+        st.text(user_input)
 
     # Append to chat history
-    chat_history.append({"role": "user", "content": user_input})
     st.session_state.messages.append({"role": "user", "content": user_input})
+    
+    # Trim chat history before sending to the model
+    trimmed_history, history_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
+    
+    # Calculate prompt tokens
+    prompt_input = _inputs.invoke({"question": user_input, "chat_history": trimmed_history})
+    prompt_tokens = count_tokens(str(prompt_input))
+    
 
     # Display assistant response in chat message container
     with st.chat_message("assistant", avatar="utils/images/queryqueen.png"):
         loading_message = st.empty()
+        # Display "Thinking..." message
         loading_message.markdown("Thinking...")
 
         result = ""
-        for word in chain.invoke(input={"question": user_input, "chat_history": st.session_state.messages}):
-            result += word
+        for token in chain.invoke(input={"question": user_input, "chat_history": trimmed_history}):
+            result += token
             loading_message.markdown(result)
+           
+    # Calculate completion tokens
+    completion_tokens = count_tokens(result)
+    
+    # Update token counts
+    update_token_count(prompt_tokens, completion_tokens)
 
-        # Add assistant response to chat history
-        chat_history.append({"role": "assistant", "content": result})
-        st.session_state.messages.append({"role": "assistant", "content": result})
-        
+    # Add assistant response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": result})
+    
+    
+    
+    
+    
+    
+    # Trim chat history if needed, based on prompt tokens only
+    if st.session_state.total_prompt_tokens > MAX_HISTORY_TOKENS:
+        st.session_state.messages, new_prompt_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
+
+        # Recalculate total tokens after trimming
+        st.session_state.total_prompt_tokens = new_prompt_tokens
+        st.session_state.total_tokens = st.session_state.total_prompt_tokens + st.session_state.total_completion_tokens
+
+    # Display updated token counts
+    st.sidebar.write(f"Prompt tokens: {st.session_state.total_prompt_tokens}")
+    st.sidebar.write(f"Completion tokens: {st.session_state.total_completion_tokens}")
+    st.sidebar.write(f"Total tokens: {st.session_state.total_tokens}")
+    st.sidebar.write(f"Max prompt tokens: {MAX_HISTORY_TOKENS}")
+            
+
      

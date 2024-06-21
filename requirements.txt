@@ -1,8 +1,10 @@
 
 #pip install -r requirements.txt
-
-langchain
-langgraph
+transformers
+pinecone-client
+unstructured
+pytube
+youtube-transcript-api
 langchainhub
 langchain-anthropic
 langchain_community
@@ -24,3 +26,5 @@ dotenv-python
 nest_asyncio
 lxml
 streamlit
+langchain
+langgraph
