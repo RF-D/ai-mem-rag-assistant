@@ -306,17 +306,17 @@ if st.sidebar.button("Reset Chat History"):
 
 def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) -> Tuple[List[Dict[str, str]], int]:
     trimmed_messages = []
-    total_tokens = 0
+    total_prompt_tokens = 0
     user_message_found = False
 
     for message in reversed(messages):
         message_tokens = count_tokens(message["content"])
 
-        if total_tokens + message_tokens > max_tokens and user_message_found:
+        if total_prompt_tokens + message_tokens > max_tokens and user_message_found:
             break
 
-        total_tokens += message_tokens
-        trimmed_messages.insert(0, message)  # Insert at the beginning to maintain order
+        total_prompt_tokens += message_tokens
+        trimmed_messages.insert(0, message)
 
         if message["role"] == "user":
             user_message_found = True
@@ -326,19 +326,19 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
         for message in messages:
             if message["role"] == "user":
                 if trimmed_messages:
-                    trimmed_messages.insert(0, message)  # Insert at the beginning
+                    trimmed_messages.insert(0, message)
                 else:
                     trimmed_messages.append(message)
-                total_tokens += count_tokens(message["content"])
+                total_prompt_tokens += count_tokens(message["content"])
                 break
 
     # If still no user message, add a dummy user message
     if not trimmed_messages or trimmed_messages[0]["role"] != "user":
         dummy_message = {"role": "user", "content": "Start of conversation"}
         trimmed_messages.insert(0, dummy_message)
-        total_tokens += count_tokens(dummy_message["content"])
+        total_prompt_tokens += count_tokens(dummy_message["content"])
 
-    return trimmed_messages, total_tokens
+    return trimmed_messages, total_prompt_tokens
 
 MAX_HISTORY_TOKENS = 100000
 
@@ -347,8 +347,10 @@ def calculate_total_tokens(messages: List[Dict[str, str]]) -> int:
 # Initialize chat history
 chat_history = []
 
-def update_token_count(new_tokens):
-    st.session_state.total_tokens += new_tokens
+def update_token_count(prompt_tokens, completion_tokens):
+    st.session_state.total_prompt_tokens += prompt_tokens
+    st.session_state.total_completion_tokens += completion_tokens
+    st.session_state.total_tokens = st.session_state.total_prompt_tokens + st.session_state.total_completion_tokens
 
 st.title("Rag Chat")
 
@@ -358,6 +360,12 @@ st.title("Rag Chat")
 #Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
+    
+# Initialize token counters in session state
+if "total_prompt_tokens" not in st.session_state:
+    st.session_state.total_prompt_tokens = 0
+if "total_completion_tokens" not in st.session_state:
+    st.session_state.total_completion_tokens = 0
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
     
@@ -389,9 +397,9 @@ if user_input:
     # Trim chat history before sending to the model
     trimmed_history, history_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
     
-    # After processing user input
-    user_tokens = count_tokens(user_input)
-    update_token_count(user_tokens)
+    # Calculate prompt tokens
+    prompt_input = _inputs.invoke({"question": user_input, "chat_history": trimmed_history})
+    prompt_tokens = count_tokens(str(prompt_input))
     
 
     # Display assistant response in chat message container
@@ -405,27 +413,33 @@ if user_input:
             result += token
             loading_message.markdown(result)
            
-
-        
+    # Calculate completion tokens
+    completion_tokens = count_tokens(result)
+    
+    # Update token counts
+    update_token_count(prompt_tokens, completion_tokens)
 
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": result})
     
-    # After getting the assistant's response
-    assistant_tokens = count_tokens(result)
-    update_token_count(assistant_tokens)
     
     
     
     
-   # Trim chat history if needed
-    if st.session_state.total_tokens > MAX_HISTORY_TOKENS:
-        st.session_state.messages, new_total_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
-        st.session_state.total_tokens = new_total_tokens
     
-    
-st.sidebar.write(f"Current token count: {st.session_state.total_tokens}")
-st.sidebar.write(f"Max token count: {MAX_HISTORY_TOKENS}")
-        
+    # Trim chat history if needed, based on prompt tokens only
+    if st.session_state.total_prompt_tokens > MAX_HISTORY_TOKENS:
+        st.session_state.messages, new_prompt_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
+
+        # Recalculate total tokens after trimming
+        st.session_state.total_prompt_tokens = new_prompt_tokens
+        st.session_state.total_tokens = st.session_state.total_prompt_tokens + st.session_state.total_completion_tokens
+
+    # Display updated token counts
+    st.sidebar.write(f"Prompt tokens: {st.session_state.total_prompt_tokens}")
+    st.sidebar.write(f"Completion tokens: {st.session_state.total_completion_tokens}")
+    st.sidebar.write(f"Total tokens: {st.session_state.total_tokens}")
+    st.sidebar.write(f"Max prompt tokens: {MAX_HISTORY_TOKENS}")
+            
 
      
