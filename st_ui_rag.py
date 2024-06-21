@@ -292,6 +292,9 @@ with st.sidebar.expander("Upload and Embed Documents"):
                 st.error("Please check the error message and try again.")
         else:
             st.warning("No documents to embed.")
+# Reset chat history button
+if st.sidebar.button("Reset Chat History"):
+    st.session_state.messages = []
     
 # Initialize chat history
 chat_history = []
@@ -316,14 +319,13 @@ if split_result:
     with st.expander("Scrape Result", expanded=False):
         st.write(split_result)
 
-
+#Chat Container
 if user_input:
     # Display user input in chat message container
     with st.chat_message("user", avatar="utils/images/user_avatar.png"):
         st.text(user_input)
 
     # Append to chat history
-    chat_history.append({"role": "user", "content": user_input})
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     # Display assistant response in chat message container
@@ -343,7 +345,6 @@ if user_input:
         loading_message.empty()
 
     # Add assistant response to chat history
-    chat_history.append({"role": "assistant", "content": result})
     st.session_state.messages.append({"role": "assistant", "content": result})
 
         
