@@ -2,47 +2,34 @@
 import os
 import tempfile
 import streamlit as st
-from operator import itemgetter
 from typing import List, Tuple, Dict
-from tools.doc_loader import load_documents
-from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferWindowMemory
-from langchain.memory import ChatMessageHistory
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-    MessagesPlaceholder,
-    format_document,
-)
-from langchain_core.prompts.prompt import PromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.runnables import (
-    RunnableBranch,
-    RunnableLambda,
-    RunnableParallel,
-    RunnablePassthrough,
-)
-from langchain_pinecone import PineconeVectorStore
-from tools.voyage_embeddings import vo_embed
-from tools.retriever_tools import retriever_tool, retriever_tool_meta
-from tools.firecrawl_scrape_loader import scrape
-from tools.text_splitter import split_md,split_text
-from tools.firecrawl_crawl_loader import crawl
-from tools.firecrawl_scrape_loader import scrape
-from scrape_sitemap import scrape_sitemap
-from tools.youtube_chat import youtube_chat
 from functools import lru_cache
 from operator import itemgetter
+from dotenv import load_dotenv
+
+# Langchain imports
+from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
-from dotenv import load_dotenv
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.runnables import RunnablePassthrough, RunnableBranch, RunnableLambda, RunnableParallel
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_core.prompts import format_document
+
+# Vector store and embeddings
+from langchain_pinecone import PineconeVectorStore
+from tools.voyage_embeddings import vo_embed
+
+# Custom tools and loaders
+from tools.doc_loader import load_documents
+from tools.retriever_tools import retriever_tool_meta
+from tools.firecrawl_scrape_loader import scrape
+from tools.text_splitter import split_md, split_text
+from tools.firecrawl_crawl_loader import crawl
+from scrape_sitemap import scrape_sitemap
+from tools.youtube_chat import youtube_chat
 
 
 
@@ -87,9 +74,6 @@ def load_llm(provider, model):
         raise ValueError(f"Unsupported provider: {provider}")
 
 chain_llm = load_llm(chain_provider, chain_model)
-
-
-
 
 #we are only couting tokens for one LLM here we might need more
 def count_tokens(text: str, provider, model) -> int:
