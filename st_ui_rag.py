@@ -43,6 +43,7 @@ from operator import itemgetter
 from dotenv import load_dotenv
 
 
+
 load_dotenv()
 
 
@@ -51,8 +52,8 @@ load_dotenv()
 @lru_cache(maxsize=1)
 def load_llms():
     return {
-        "default": ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.7, streaming=True),
-        "fast": ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0.8, streaming=True)
+        "default": ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0.7, streaming=True),
+        "fast": ChatAnthropic(model="claude-3-sonnet-20240229", temperature=1, streaming=True)
     }
 
 llms = load_llms()
@@ -91,9 +92,12 @@ CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
 
 @lru_cache(maxsize=1)
 def load_answer_prompt():
-    template = """Provide a detailed and comprehensive answer to the question, using the context provided. If the context is insufficient, indicate what additional information would be needed to answer the question.
-    
-    Context: {context}
+    template = """Here is the context you have access to:
+<context>
+{context}
+</context>
+
+If the context provided is sufficient to answer the question, use it to formulate your response. If the context is insufficient or empty, you should rely on your own knowledge to answer the question. If you cannot answer the question based on the context or your own knowledge, indicate what additional information would be needed to provide a complete answer.
     """
     return ChatPromptTemplate.from_messages(
         [
@@ -187,8 +191,6 @@ sidebar = st.sidebar
 # Add sidebar title and description
 sidebar.title("Rag Chat Tools")
 sidebar.write("Ingest Knowledge here with your preferred method")
-
-
 
 
 # Create a dropdown menu to select the function to call
@@ -340,10 +342,10 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
 
     return trimmed_messages, total_prompt_tokens
 
-MAX_HISTORY_TOKENS = 100000
+MAX_HISTORY_TOKENS = 80000
 
-def calculate_total_tokens(messages: List[Dict[str, str]]) -> int:
-    return sum(count_tokens(message["content"]) for message in messages)
+def calculate_total_tokens(prompt_tokens, completion_tokens):
+    return prompt_tokens + completion_tokens
 # Initialize chat history
 chat_history = []
 
@@ -354,8 +356,6 @@ def update_token_count(prompt_tokens, completion_tokens):
 
 st.title("Rag Chat")
 
-
-    
     
 #Initialize chat history
 if "messages" not in st.session_state:
@@ -371,7 +371,6 @@ if "total_tokens" not in st.session_state:
     
 
 
-
 for message in st.session_state.messages:
     avatar = "utils/images/user_avatar.png" if message["role"] == "user" else "utils/images/queryqueen.png"
     with st.chat_message(message["role"], avatar=avatar):
@@ -380,7 +379,7 @@ for message in st.session_state.messages:
 # User input
 user_input = st.chat_input("Write something here...", key="input")
 
-# Display the scrape result below the user input
+# Display the scrape result below the user input 
 if split_result:
     with st.expander("Scrape Result", expanded=False):
         st.write(split_result)
@@ -397,11 +396,7 @@ if user_input:
     # Trim chat history before sending to the model
     trimmed_history, history_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
     
-    # Calculate prompt tokens
-    prompt_input = _inputs.invoke({"question": user_input, "chat_history": trimmed_history})
-    prompt_tokens = count_tokens(str(prompt_input))
-    
-
+   
     # Display assistant response in chat message container
     with st.chat_message("assistant", avatar="utils/images/queryqueen.png"):
         loading_message = st.empty()
@@ -413,27 +408,27 @@ if user_input:
             result += token
             loading_message.markdown(result)
            
+   # Calculate prompt tokens
+    prompt_tokens = count_tokens(str({"question": user_input, "chat_history": trimmed_history}))
+
     # Calculate completion tokens
     completion_tokens = count_tokens(result)
     
     # Update token counts
-    update_token_count(prompt_tokens, completion_tokens)
-
+    st.session_state.total_prompt_tokens = prompt_tokens
+    st.session_state.total_completion_tokens = completion_tokens
+    st.session_state.total_tokens = calculate_total_tokens(prompt_tokens, completion_tokens)
+    
+    
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": result})
-    
-    
-    
-    
     
     
     # Trim chat history if needed, based on prompt tokens only
     if st.session_state.total_prompt_tokens > MAX_HISTORY_TOKENS:
         st.session_state.messages, new_prompt_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
-
-        # Recalculate total tokens after trimming
         st.session_state.total_prompt_tokens = new_prompt_tokens
-        st.session_state.total_tokens = st.session_state.total_prompt_tokens + st.session_state.total_completion_tokens
+        st.session_state.total_tokens = calculate_total_tokens(new_prompt_tokens, st.session_state.total_completion_tokens)
 
     # Display updated token counts
     st.sidebar.write(f"Prompt tokens: {st.session_state.total_prompt_tokens}")

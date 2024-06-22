@@ -1,5 +1,6 @@
 
 #pip install -r requirements.txt
+tiktoken
 transformers
 pinecone-client
 unstructured
