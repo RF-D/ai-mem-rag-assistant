@@ -8,6 +8,7 @@ pytube
 youtube-transcript-api
 langchainhub
 langchain-anthropic
+langchain-openai
 langchain_community
 langchain-voyageai
 langchain-pinecone

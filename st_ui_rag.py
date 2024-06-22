@@ -40,26 +40,57 @@ from scrape_sitemap import scrape_sitemap
 from tools.youtube_chat import youtube_chat
 from functools import lru_cache
 from operator import itemgetter
+from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 
 
 
 load_dotenv()
+# Streamlit app
+
+# Set page configuration
+st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
+# Define available providers and models
+provider_models = {
+    "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229","claude-3-5-sonnet-20240620","claude-3-opus-20240229"],
+    "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
+    # Add more providers and models as needed
+}
+
+st.sidebar.title("Select AI")
+
+# Streamlit UI for provider and model selection for the chain
+chain_provider = st.sidebar.selectbox("Select LLM Provider for Response Generation", list(provider_models.keys()))
+chain_model = st.sidebar.selectbox("Select Model Response Generation", provider_models[chain_provider])
+
+# Add a divider
+st.sidebar.write("---")
+
+# Streamlit UI for provider and model selection for the search_query function
+search_query_provider = st.sidebar.selectbox("Select LLM Provider for Querying Retriever", list(provider_models.keys()))
+search_query_model = st.sidebar.selectbox("Select Model Provider for Querying Retriever", provider_models[search_query_provider])
+
+# Add a divider
+st.sidebar.write("---")
+
+def load_llm(provider, model):
+    if provider == "Anthropic":
+        return ChatAnthropic(model=model, temperature=0.7, streaming=True)
+    elif provider == "OpenAI":
+        return ChatOpenAI(model=model, temperature=0.7)
+    # Add more providers as needed
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+
+chain_llm = load_llm(chain_provider, chain_model)
 
 
 
-# Create the LLM
-@lru_cache(maxsize=1)
-def load_llms():
-    return {
-        "default": ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0.7, streaming=True),
-        "fast": ChatAnthropic(model="claude-3-sonnet-20240229", temperature=1, streaming=True)
-    }
 
-llms = load_llms()
-
-def count_tokens(text: str, llm_type: str = "default") -> int:
-    return llms[llm_type].get_num_tokens(text)
+#we are only couting tokens for one LLM here we might need more
+def count_tokens(text: str, provider, model) -> int:
+    llm = load_llm(provider, model)
+    return llm.get_num_tokens(text)
 
 # Setup VectorDB
 
@@ -81,7 +112,7 @@ retriever = load_retriever()
 # RAG setup
 @lru_cache(maxsize=1)
 def load_condense_question_prompt():
-    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
     Chat History:
     {chat_history}
     Follow Up Input: {question}
@@ -153,7 +184,7 @@ _search_query = RunnableBranch(
             question=lambda x: x["question"]
         )
         | CONDENSE_QUESTION_PROMPT
-        | llms["default"]
+        | load_llm(search_query_provider, search_query_model)
         | StrOutputParser(),
     ),
     # Else, we have no chat history, so just pass through the question
@@ -168,14 +199,9 @@ _inputs = RunnableParallel(
     }
 ).with_types(input_type=ChatHistory)
 
-chain = _inputs | ANSWER_PROMPT | llms["fast"] | StrOutputParser(verbose=True)
+chain = _inputs | ANSWER_PROMPT | chain_llm | StrOutputParser(verbose=True)
 
 
-
-# Streamlit app
-
-# Set page configuration
-st.set_page_config(page_title="Rag Chat", page_icon=":guardsman:", layout="wide")
 
 # Load and cache the embedding model for vector embeddings.
 @st.cache_resource
@@ -190,7 +216,6 @@ sidebar = st.sidebar
 
 # Add sidebar title and description
 sidebar.title("Rag Chat Tools")
-sidebar.write("Ingest Knowledge here with your preferred method")
 
 
 # Create a dropdown menu to select the function to call
@@ -312,7 +337,7 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
     user_message_found = False
 
     for message in reversed(messages):
-        message_tokens = count_tokens(message["content"])
+        message_tokens = count_tokens(message["content"], chain_provider, chain_model)
 
         if total_prompt_tokens + message_tokens > max_tokens and user_message_found:
             break
@@ -331,7 +356,7 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
                     trimmed_messages.insert(0, message)
                 else:
                     trimmed_messages.append(message)
-                total_prompt_tokens += count_tokens(message["content"])
+                total_prompt_tokens += count_tokens(dummy_message["content"], chain_provider, chain_model)
                 break
 
     # If still no user message, add a dummy user message
@@ -342,7 +367,7 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
 
     return trimmed_messages, total_prompt_tokens
 
-MAX_HISTORY_TOKENS = 80000
+MAX_HISTORY_TOKENS = 40000
 
 def calculate_total_tokens(prompt_tokens, completion_tokens):
     return prompt_tokens + completion_tokens
@@ -354,7 +379,7 @@ def update_token_count(prompt_tokens, completion_tokens):
     st.session_state.total_completion_tokens += completion_tokens
     st.session_state.total_tokens = st.session_state.total_prompt_tokens + st.session_state.total_completion_tokens
 
-st.title("Rag Chat")
+st.title("Persistent Memory Conversational Agent")
 
     
 #Initialize chat history
@@ -409,10 +434,12 @@ if user_input:
             loading_message.markdown(result)
            
    # Calculate prompt tokens
-    prompt_tokens = count_tokens(str({"question": user_input, "chat_history": trimmed_history}))
+    prompt_tokens = count_tokens(str({"question": user_input, "chat_history": trimmed_history}), chain_provider, chain_model)
+
+
 
     # Calculate completion tokens
-    completion_tokens = count_tokens(result)
+    completion_tokens = count_tokens(result, chain_provider, chain_model)
     
     # Update token counts
     st.session_state.total_prompt_tokens = prompt_tokens
