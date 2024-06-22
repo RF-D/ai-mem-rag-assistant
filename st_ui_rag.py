@@ -41,6 +41,7 @@ from tools.youtube_chat import youtube_chat
 from functools import lru_cache
 from operator import itemgetter
 from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 
 
@@ -52,9 +53,9 @@ load_dotenv()
 st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
 # Define available providers and models
 provider_models = {
-    "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229","claude-3-5-sonnet-20240620","claude-3-opus-20240229"],
+    "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-5-sonnet-20240620", "claude-3-opus-20240229"],
     "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
-    # Add more providers and models as needed
+    "Groq": ["llama3-70b-8192"],
 }
 
 st.sidebar.title("Select AI")
@@ -78,7 +79,10 @@ def load_llm(provider, model):
         return ChatAnthropic(model=model, temperature=0.7, streaming=True)
     elif provider == "OpenAI":
         return ChatOpenAI(model=model, temperature=0.7)
-    # Add more providers as needed
+    elif provider == "Groq":
+        # Initialize the Groq provider with the LLaMA 3 70B model
+        groq_provider = ChatGroq(model_name="llama3-70b-8192", temperature=0.7)
+        return groq_provider
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
