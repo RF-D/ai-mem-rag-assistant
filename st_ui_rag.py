@@ -30,55 +30,91 @@ from tools.text_splitter import split_md, split_text
 from tools.firecrawl_crawl_loader import crawl
 from scrape_sitemap import scrape_sitemap
 from tools.youtube_chat import youtube_chat
-
-
-
 load_dotenv()
+class LLMManager:
+    provider_models = {
+        "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-5-sonnet-20240620", "claude-3-opus-20240229"],
+        "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
+        "Groq": ["llama3-70b-8192"],
+    }
+    MAX_HISTORY_TOKENS = 40000
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def load_llm(provider: str, model: str):
+        providers = {
+            "Anthropic": lambda: ChatAnthropic(model=model, temperature=0.7, streaming=True),
+            "OpenAI": lambda: ChatOpenAI(model=model, temperature=0.7),
+            "Groq": lambda: ChatGroq(model_name="llama3-70b-8192", temperature=0.7)
+        }
+        if provider not in providers:
+            raise ValueError(f"Unsupported provider: {provider}")
+        if model not in LLMManager.provider_models[provider]:
+            raise ValueError(f"Unsupported model {model} for provider {provider}")
+        return providers[provider]()
+
+    @staticmethod
+    def count_tokens(text: str, provider: str, model: str) -> int:
+        llm = LLMManager.load_llm(provider, model)
+        return llm.get_num_tokens(text)
+
+    @staticmethod
+    def get_provider_models():
+        return LLMManager.provider_models
+
+    @staticmethod
+    def get_models_for_provider(provider: str):
+        return LLMManager.provider_models.get(provider, [])
+
+    @staticmethod
+    def calculate_total_tokens(prompt_tokens: int, completion_tokens: int) -> int:
+        return prompt_tokens + completion_tokens
+
+    @staticmethod
+    def update_token_count(st_session_state, prompt_tokens: int, completion_tokens: int):
+        st_session_state.total_prompt_tokens += prompt_tokens
+        st_session_state.total_completion_tokens += completion_tokens
+        st_session_state.total_tokens = LLMManager.calculate_total_tokens(
+            st_session_state.total_prompt_tokens, 
+            st_session_state.total_completion_tokens
+        )
+
+MAX_HISTORY_TOKENS = LLMManager.MAX_HISTORY_TOKENS
+
+
 # Streamlit app
 
 # Set page configuration
 st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
-# Define available providers and models
-provider_models = {
-    "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-5-sonnet-20240620", "claude-3-opus-20240229"],
-    "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
-    "Groq": ["llama3-70b-8192"],
-}
 
-st.sidebar.title("Select AI")
 
-# Streamlit UI for provider and model selection for the chain
-chain_provider = st.sidebar.selectbox("Select LLM Provider for Response Generation", list(provider_models.keys()))
-chain_model = st.sidebar.selectbox("Select Model Response Generation", provider_models[chain_provider])
+def setup_sidebar():
+    st.sidebar.title("AI MEM Configuration")
+    
+    # LLM selection for Response Generation
+    chain_provider = st.sidebar.selectbox("Select LLM Provider for Response Generation", 
+                                          list(LLMManager.get_provider_models().keys()))
+    chain_model = st.sidebar.selectbox("Select Model for Response Generation", 
+                                       LLMManager.get_models_for_provider(chain_provider))
 
-# Add a divider
-st.sidebar.write("---")
+    st.sidebar.write("---")
 
-# Streamlit UI for provider and model selection for the search_query function
-search_query_provider = st.sidebar.selectbox("Select LLM Provider for Querying Retriever", list(provider_models.keys()))
-search_query_model = st.sidebar.selectbox("Select Model Provider for Querying Retriever", provider_models[search_query_provider])
+    # LLM selection for Querying Retriever
+    search_query_provider = st.sidebar.selectbox("Select LLM Provider for Querying Retriever", 
+                                                 list(LLMManager.get_provider_models().keys()))
+    search_query_model = st.sidebar.selectbox("Select Model for Querying Retriever", 
+                                              LLMManager.get_models_for_provider(search_query_provider))
 
-# Add a divider
-st.sidebar.write("---")
+    return chain_provider, chain_model, search_query_provider, search_query_model
 
-def load_llm(provider, model):
-    if provider == "Anthropic":
-        return ChatAnthropic(model=model, temperature=0.7, streaming=True)
-    elif provider == "OpenAI":
-        return ChatOpenAI(model=model, temperature=0.7)
-    elif provider == "Groq":
-        # Initialize the Groq provider with the LLaMA 3 70B model
-        groq_provider = ChatGroq(model_name="llama3-70b-8192", temperature=0.7)
-        return groq_provider
-    else:
-        raise ValueError(f"Unsupported provider: {provider}")
+# In your main app logic
+chain_provider, chain_model, search_query_provider, search_query_model = setup_sidebar()
 
-chain_llm = load_llm(chain_provider, chain_model)
+# Load LLMs
+chain_llm = LLMManager.load_llm(chain_provider, chain_model)
+search_query_llm = LLMManager.load_llm(search_query_provider, search_query_model)
 
-#we are only couting tokens for one LLM here we might need more
-def count_tokens(text: str, provider, model) -> int:
-    llm = load_llm(provider, model)
-    return llm.get_num_tokens(text)
+
 
 # Setup VectorDB
 
@@ -172,7 +208,7 @@ _search_query = RunnableBranch(
             question=lambda x: x["question"]
         )
         | CONDENSE_QUESTION_PROMPT
-        | load_llm(search_query_provider, search_query_model)
+        | search_query_llm
         | StrOutputParser(),
     ),
     # Else, we have no chat history, so just pass through the question
@@ -325,7 +361,7 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
     user_message_found = False
 
     for message in reversed(messages):
-        message_tokens = count_tokens(message["content"], chain_provider, chain_model)
+        message_tokens = LLMManager.count_tokens(message["content"], chain_provider, chain_model)
 
         if total_prompt_tokens + message_tokens > max_tokens and user_message_found:
             break
@@ -344,28 +380,27 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
                     trimmed_messages.insert(0, message)
                 else:
                     trimmed_messages.append(message)
-                total_prompt_tokens += count_tokens(message["content"], chain_provider, chain_model)
+                total_prompt_tokens += LLMManager.count_tokens(message["content"], chain_provider, chain_model)
                 break
 
     # If still no user message, add a dummy user message
     if not trimmed_messages or trimmed_messages[0]["role"] != "user":
         dummy_message = {"role": "user", "content": "Start of conversation"}
         trimmed_messages.insert(0, dummy_message)
-        total_prompt_tokens += count_tokens(dummy_message["content"], chain_provider, chain_model)
+        total_prompt_tokens += LLMManager.count_tokens(dummy_message["content"], chain_provider, chain_model)
 
     return trimmed_messages, total_prompt_tokens
 
-MAX_HISTORY_TOKENS = 40000
 
-def calculate_total_tokens(prompt_tokens, completion_tokens):
-    return prompt_tokens + completion_tokens
+
+calculate_total_tokens = LLMManager.calculate_total_tokens
+
 # Initialize chat history
 chat_history = []
 
-def update_token_count(prompt_tokens, completion_tokens):
-    st.session_state.total_prompt_tokens += prompt_tokens
-    st.session_state.total_completion_tokens += completion_tokens
-    st.session_state.total_tokens = st.session_state.total_prompt_tokens + st.session_state.total_completion_tokens
+
+# Initialize token counters
+update_token_count = LLMManager.update_token_count
 
 st.title("Persistent Memory Conversational Agent")
 
@@ -422,17 +457,13 @@ if user_input:
             loading_message.markdown(result)
            
    # Calculate prompt tokens
-    prompt_tokens = count_tokens(str({"question": user_input, "chat_history": trimmed_history}), chain_provider, chain_model)
-
-
+    prompt_tokens = LLMManager.count_tokens(str({"question": user_input, "chat_history": trimmed_history}), chain_provider, chain_model)
 
     # Calculate completion tokens
-    completion_tokens = count_tokens(result, chain_provider, chain_model)
+    completion_tokens = LLMManager.count_tokens(result, chain_provider, chain_model)
     
     # Update token counts
-    st.session_state.total_prompt_tokens = prompt_tokens
-    st.session_state.total_completion_tokens = completion_tokens
-    st.session_state.total_tokens = calculate_total_tokens(prompt_tokens, completion_tokens)
+    LLMManager.update_token_count(st.session_state, prompt_tokens, completion_tokens)
     
     
     # Add assistant response to chat history
