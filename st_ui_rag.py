@@ -356,14 +356,14 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
                     trimmed_messages.insert(0, message)
                 else:
                     trimmed_messages.append(message)
-                total_prompt_tokens += count_tokens(dummy_message["content"], chain_provider, chain_model)
+                total_prompt_tokens += count_tokens(message["content"], chain_provider, chain_model)
                 break
 
     # If still no user message, add a dummy user message
     if not trimmed_messages or trimmed_messages[0]["role"] != "user":
         dummy_message = {"role": "user", "content": "Start of conversation"}
         trimmed_messages.insert(0, dummy_message)
-        total_prompt_tokens += count_tokens(dummy_message["content"])
+        total_prompt_tokens += count_tokens(dummy_message["content"], chain_provider, chain_model)
 
     return trimmed_messages, total_prompt_tokens
 
