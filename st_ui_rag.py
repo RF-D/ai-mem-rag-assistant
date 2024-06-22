@@ -69,7 +69,7 @@ class LLMManager:
     @staticmethod
     def calculate_total_tokens(prompt_tokens: int, completion_tokens: int) -> int:
         return prompt_tokens + completion_tokens
-
+     
     @staticmethod
     def update_token_count(st_session_state, prompt_tokens: int, completion_tokens: int):
         st_session_state.total_prompt_tokens += prompt_tokens
@@ -78,6 +78,23 @@ class LLMManager:
             st_session_state.total_prompt_tokens, 
             st_session_state.total_completion_tokens
         )
+
+    @staticmethod
+    def reset_token_count(st_session_state, new_prompt_tokens: int):
+        st_session_state.total_prompt_tokens = new_prompt_tokens
+        st_session_state.total_completion_tokens = 0
+        st_session_state.total_tokens = new_prompt_tokens
+
+    @staticmethod
+    def get_token_usage_percentage(st_session_state):
+        return (st_session_state.total_tokens / LLMManager.MAX_HISTORY_TOKENS) * 100    
+    @staticmethod
+    def display_token_counts(st_sidebar, st_session_state):
+        st_sidebar.write(f"Prompt tokens: {st_session_state.total_prompt_tokens}")
+        st_sidebar.write(f"Completion tokens: {st_session_state.total_completion_tokens}")
+        st_sidebar.write(f"Total tokens: {st_session_state.total_tokens}")
+        st_sidebar.write(f"Max prompt tokens: {LLMManager.MAX_HISTORY_TOKENS}")
+
 
 MAX_HISTORY_TOKENS = LLMManager.MAX_HISTORY_TOKENS
 
@@ -470,17 +487,12 @@ if user_input:
     st.session_state.messages.append({"role": "assistant", "content": result})
     
     
-    # Trim chat history if needed, based on prompt tokens only
-    if st.session_state.total_prompt_tokens > MAX_HISTORY_TOKENS:
-        st.session_state.messages, new_prompt_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
-        st.session_state.total_prompt_tokens = new_prompt_tokens
-        st.session_state.total_tokens = calculate_total_tokens(new_prompt_tokens, st.session_state.total_completion_tokens)
+    # Trim chat history if needed, based on total tokens
+    if st.session_state.total_tokens > LLMManager.MAX_HISTORY_TOKENS:
+        st.session_state.messages, new_prompt_tokens = trim_chat_history(st.session_state.messages, LLMManager.MAX_HISTORY_TOKENS)
+        LLMManager.reset_token_count(st.session_state, new_prompt_tokens)
 
     # Display updated token counts
-    st.sidebar.write(f"Prompt tokens: {st.session_state.total_prompt_tokens}")
-    st.sidebar.write(f"Completion tokens: {st.session_state.total_completion_tokens}")
-    st.sidebar.write(f"Total tokens: {st.session_state.total_tokens}")
-    st.sidebar.write(f"Max prompt tokens: {MAX_HISTORY_TOKENS}")
-            
+    LLMManager.display_token_counts(st.sidebar, st.session_state)
 
      
