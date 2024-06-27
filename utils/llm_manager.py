@@ -22,7 +22,7 @@ class LLMManager:
     @lru_cache(maxsize=None)
     def load_llm(provider: str, model: str):
         providers = {
-            "Anthropic": lambda: ChatAnthropic(model=model, temperature=0.7, streaming=True),
+            "Anthropic": lambda: ChatAnthropic(model=model, temperature=0.8, streaming=True),
             "OpenAI": lambda: ChatOpenAI(model=model, temperature=0.7),
             "Groq": lambda: ChatGroq(model_name="llama3-70b-8192", temperature=0.7)
         }
