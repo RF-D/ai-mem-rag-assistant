@@ -1,5 +1,6 @@
 
 #pip install -r requirements.txt
+psutil
 tiktoken
 transformers
 pinecone-client
