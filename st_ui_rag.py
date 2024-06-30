@@ -30,6 +30,7 @@ from tools.text_splitter import split_md, split_text
 from tools.firecrawl_crawl_loader import crawl
 from scrape_sitemap import scrape_sitemap
 from tools.youtube_chat import youtube_chat
+from tools.github_loader import load_github_issues, load_github_file
 load_dotenv()
 
 
@@ -199,8 +200,41 @@ sidebar.title("Rag Chat Tools")
 
 
 # Create a dropdown menu to select the function to call
-functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat}
+functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat,"Load GitHub Issues": load_github_issues,
+    "Load GitHub File": load_github_file,}
+
 selected_function = st.sidebar.selectbox("Select a function", list(functions.keys()))
+
+st.sidebar.write("---")
+
+# Common inputs for GitHub functions
+if selected_function in ["Load GitHub Issues", "Load GitHub File"]:
+    repo_owner = st.sidebar.text_input("GitHub Repository Owner")
+    repo_name = st.sidebar.text_input("GitHub Repository Name")
+    access_token = st.sidebar.text_input("GitHub Access Token", type="password")
+
+# Additional inputs based on selected function
+if selected_function == "Load GitHub Issues":
+    include_prs = st.sidebar.checkbox("Include Pull Requests", value=True)
+elif selected_function == "Load GitHub File":
+    file_path = st.sidebar.text_input("File Path")
+    branch = st.sidebar.text_input("Branch", value="main")
+
+if selected_function in ["Load GitHub Issues", "Load GitHub File"]:
+    if st.sidebar.button("Submit GitHub Function", key="github_submit"):
+        if repo_owner and repo_name:
+            try:
+                if selected_function == "Load GitHub Issues":
+                    docs = functions[selected_function](repo_owner, repo_name, access_token, include_prs=include_prs)
+                elif selected_function == "Load GitHub File":
+                    docs = functions[selected_function](repo_owner, repo_name, file_path, branch, access_token)
+
+                # Display or process the loaded documents
+                st.write(docs)
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+        else:
+            st.warning("Please enter the repository owner and name.")
 
 url = st.sidebar.text_input("Enter a URL")
 
@@ -216,7 +250,7 @@ if selected_function == "Sitemap Scraper":
     st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
 
 
-if st.sidebar.button("Submit"):
+if st.sidebar.button("Submit URL Function", key="url_submit"):
     if url:
         if selected_function == "Sitemap Scraper":
             try:
@@ -260,7 +294,7 @@ if "split_result" in st.session_state and selected_function != "Sitemap Scraper"
         # Display the index name input field and update the session state
         st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
 
-        if st.sidebar.button("Add to Memory"):
+        if st.sidebar.button("Add to Memory", key="add_to_memory"):
             try:
                 embeddings = vo_embed()
                 PineconeVectorStore.from_documents(
@@ -294,7 +328,7 @@ with st.sidebar.expander("Upload and Embed Documents"):
         if text_input:
             loaded_docs = load_documents(text=text_input)
 
-    if st.button("Embed Documents"):
+    if st.button("Embed Documents", key="embed_documents"):
         if loaded_docs:
             try:
                 embeddings = vo_embed()
