@@ -6,6 +6,15 @@ from functools import lru_cache
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
+from langchain_community.chat_models import ChatOllama
+# Local imports for Ollama
+import os
+import subprocess
+import time
+import atexit
+import psutil
+
+
 
 # Streamlit is needed for type hinting and accessing session state
 import streamlit as st
@@ -15,16 +24,87 @@ class LLMManager:
         "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-5-sonnet-20240620", "claude-3-opus-20240229"],
         "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
         "Groq": ["llama3-70b-8192"],
+        "Ollama": []
     }
     MAX_HISTORY_TOKENS = 40000
+    ollama_process = None
 
+    @staticmethod
+    def start_ollama_server():
+        # Check if Ollama is already running
+        for proc in psutil.process_iter(['name']):
+            if proc.info['name'] == 'ollama':
+                print("Ollama is already running.")
+                return
+
+        print("Starting Ollama server...")
+        try:
+            # Start Ollama server
+            process = subprocess.Popen(["ollama", "serve"], 
+                                    stdout=subprocess.PIPE, 
+                                    stderr=subprocess.PIPE)
+            
+            # Wait for the server to start (adjust the sleep time if needed)
+            time.sleep(5)
+            
+            # Check if the process is running
+            if process.poll() is None:
+                print("Ollama server started successfully.")
+            else:
+                print("Failed to start Ollama server.")
+                stdout, stderr = process.communicate()
+                print(f"Error: {stderr.decode()}")
+        except FileNotFoundError:
+            print("Ollama executable not found. Make sure Ollama is installed and in your PATH.")
+        except Exception as e:
+            print(f"An error occurred while starting Ollama: {str(e)}")
+
+    @staticmethod
+    def stop_ollama_server():
+        for proc in psutil.process_iter(['name']):
+            if proc.info['name'] == 'ollama':
+                proc.terminate()
+                proc.wait()
+                print("Ollama server stopped.")
+                return
+        print("Ollama server was not running.")
+        
+            
+    @staticmethod
+    def initialize_ollama_models():
+        LLMManager.start_ollama_server()
+        LLMManager.provider_models["Ollama"] = LLMManager.get_installed_ollama_models()
+        
+    @staticmethod
+    def get_installed_ollama_models():
+        try:
+            result = subprocess.run(['ollama', 'list'], capture_output=True, text=True)
+            if result.returncode == 0:
+                models = []
+                for line in result.stdout.split('\n')[1:]:  # Skip the header line
+                    if line.strip():
+                        model_name = line.split()[0]
+                        models.append(model_name)
+                return models
+            else:
+                print(f"Error running 'ollama list': {result.stderr}")
+                return []
+        except FileNotFoundError:
+            print("Ollama command not found. Make sure Ollama is installed and in your PATH.")
+            return []
+    
+        
     @staticmethod
     @lru_cache(maxsize=None)
     def load_llm(provider: str, model: str):
+        if provider == "Ollama":
+            LLMManager.initialize_ollama_models()  # Refresh Ollama models before loading
+            
         providers = {
             "Anthropic": lambda: ChatAnthropic(model=model, temperature=0.8, streaming=True),
             "OpenAI": lambda: ChatOpenAI(model=model, temperature=0.7),
-            "Groq": lambda: ChatGroq(model_name="llama3-70b-8192", temperature=0.7)
+            "Groq": lambda: ChatGroq(model_name="llama3-70b-8192", temperature=0.7),
+            "Ollama": lambda: ChatOllama(model=model,temperature=0.8, streaming=True)
         }
         if provider not in providers:
             raise ValueError(f"Unsupported provider: {provider}")

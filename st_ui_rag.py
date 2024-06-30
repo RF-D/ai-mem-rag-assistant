@@ -33,7 +33,7 @@ from tools.youtube_chat import youtube_chat
 load_dotenv()
 
 
-
+LLMManager.initialize_ollama_models()
 MAX_HISTORY_TOKENS = LLMManager.MAX_HISTORY_TOKENS
 
 
@@ -45,6 +45,7 @@ st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
 
 def setup_sidebar():
     st.sidebar.title("AI MEM Configuration")
+    
     
     # LLM selection for Response Generation
     chain_provider = st.sidebar.selectbox("Select LLM Provider for Response Generation", 
