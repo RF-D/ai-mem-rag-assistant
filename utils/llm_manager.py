@@ -6,6 +6,7 @@ from functools import lru_cache
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
+from langchain_community.chat_models import ChatOllama
 
 # Streamlit is needed for type hinting and accessing session state
 import streamlit as st
@@ -15,6 +16,7 @@ class LLMManager:
         "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-5-sonnet-20240620", "claude-3-opus-20240229"],
         "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
         "Groq": ["llama3-70b-8192"],
+        "Ollama": ["deepseek-coder-v2"]
     }
     MAX_HISTORY_TOKENS = 40000
 
@@ -24,7 +26,8 @@ class LLMManager:
         providers = {
             "Anthropic": lambda: ChatAnthropic(model=model, temperature=0.8, streaming=True),
             "OpenAI": lambda: ChatOpenAI(model=model, temperature=0.7),
-            "Groq": lambda: ChatGroq(model_name="llama3-70b-8192", temperature=0.7)
+            "Groq": lambda: ChatGroq(model_name="llama3-70b-8192", temperature=0.7),
+            "Ollama": lambda: ChatOllama(model=model,temperature=0.8, streaming=True)
         }
         if provider not in providers:
             raise ValueError(f"Unsupported provider: {provider}")
