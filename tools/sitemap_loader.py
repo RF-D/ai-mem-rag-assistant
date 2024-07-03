@@ -10,6 +10,6 @@ def get_xml(url):
     sitemap_loader.requests_per_second = 3
     
     # Optional: avoid `[SSL: CERTIFICATE_VERIFY_FAILED]` issue
-    sitemap_loader.requests_kwargs = {"verify": False}
+    sitemap_loader.requests_kwargs = {"verify": True}
     docs = sitemap_loader.load()
     return docs
