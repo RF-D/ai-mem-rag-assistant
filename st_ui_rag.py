@@ -30,6 +30,7 @@ from tools.text_splitter import split_md, split_text
 from tools.firecrawl_crawl_loader import crawl
 from scrape_sitemap import scrape_sitemap
 from tools.youtube_chat import youtube_chat
+
 load_dotenv()
 
 
@@ -44,8 +45,7 @@ st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
 
 
 def setup_sidebar():
-    st.sidebar.title("AI MEM Configuration")
-    
+    st.sidebar.title("AI MEM Configuration") 
     
     # LLM selection for Response Generation
     chain_provider = st.sidebar.selectbox("Select LLM Provider for Response Generation", 
@@ -75,12 +75,12 @@ search_query_llm = LLMManager.load_llm(search_query_provider, search_query_model
 # Setup VectorDB
 
 @lru_cache(maxsize=1)
-def load_vectorstore():
+def load_vectorstore(index_name):
     embeddings = vo_embed()
-    index_name = "langchain"
     return PineconeVectorStore.from_existing_index(embedding=embeddings, index_name=index_name)
 
-vectorstore = load_vectorstore()
+pinecone_index_name = st.sidebar.text_input("IndexName for Retreiving", value="langchain")
+vectorstore = load_vectorstore(pinecone_index_name)
 
 # Setup retriever
 @lru_cache(maxsize=1)
@@ -200,7 +200,9 @@ sidebar.title("Rag Chat Tools")
 
 # Create a dropdown menu to select the function to call
 functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat}
+
 selected_function = st.sidebar.selectbox("Select a function", list(functions.keys()))
+
 
 url = st.sidebar.text_input("Enter a URL")
 
@@ -216,7 +218,7 @@ if selected_function == "Sitemap Scraper":
     st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
 
 
-if st.sidebar.button("Submit"):
+if st.sidebar.button("Submit URL Function", key="url_submit"):
     if url:
         if selected_function == "Sitemap Scraper":
             try:
@@ -260,11 +262,11 @@ if "split_result" in st.session_state and selected_function != "Sitemap Scraper"
         # Display the index name input field and update the session state
         st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
 
-        if st.sidebar.button("Add to Memory"):
+        if st.sidebar.button("Add to Memory", key="add_to_memory"):
             try:
                 embeddings = vo_embed()
                 PineconeVectorStore.from_documents(
-                    documents=split_result, embedding=embeddings, index_name=st.session_state.index_name)
+                    documents=split_result, embedding=embeddings, index_name=st.session_state.pinecone_index_name)
                 st.sidebar.success("Embedding completed successfully!")
             except Exception as e:
                 st.sidebar.error(f"Embedding failed: {str(e)}")
@@ -294,7 +296,7 @@ with st.sidebar.expander("Upload and Embed Documents"):
         if text_input:
             loaded_docs = load_documents(text=text_input)
 
-    if st.button("Embed Documents"):
+    if st.button("Embed Documents", key="embed_documents"):
         if loaded_docs:
             try:
                 embeddings = vo_embed()
