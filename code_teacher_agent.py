@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 # Load environment variables and set up LLM
 load_dotenv()
 
+LLMManager.initialize_ollama_models()
 
 # Set up vector store and retriever
 @st.cache_resource
@@ -59,7 +60,7 @@ Question: (The actual practice question)
 Explanation: (A brief explanation of what the question is testing and why it's important)
 Skill Level: (The skill level this question is appropriate for)
 Justification: (Why this question is appropriate for the given skill level)"""),
-    HumanMessagePromptTemplate.from_template("Please generate a practice question for the following topic: {topic}. The user's skill level is: {skill_level}. Use the following context if relevant: {context}")
+    HumanMessagePromptTemplate.from_template("Please generate a practice question for the following topic: {topic}. The user's skill level is: {skill_level}.")
 ])
 
 
@@ -167,6 +168,7 @@ question_gen_llm = LLMManager.load_llm(question_gen_provider, question_gen_model
 practice_question_chain = (
     RunnablePassthrough.assign(context=get_question_context)
     | PRACTICE_QUESTION_PROMPT
+    | RunnableLambda(debug_input)
     | question_gen_llm
     | StrOutputParser()
 )
