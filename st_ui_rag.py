@@ -301,7 +301,7 @@ with st.sidebar.expander("Upload and Embed Documents"):
             try:
                 embeddings = vo_embed()
                 PineconeVectorStore.from_documents(
-                    documents=loaded_docs, embedding=embeddings, index_name="langchain")
+                    documents=loaded_docs, embedding=embeddings, index_name="qa")
                 st.success("Embedding completed successfully!")
             except Exception as e:
                 st.error(f"Embedding failed: {str(e)}")

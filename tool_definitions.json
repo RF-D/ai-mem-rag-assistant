@@ -1,0 +1,16 @@
+{
+    "name": "perplexity_web_search",
+    "description": "Performs a web search using the Perplexity AI API and returns the search results.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The search query to find information about."
+            }
+        },
+        "required": [
+            "query"
+        ]
+    }
+}
