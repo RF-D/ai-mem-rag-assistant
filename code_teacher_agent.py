@@ -15,8 +15,8 @@ from dotenv import load_dotenv
 
 # Load environment variables and set up LLM
 load_dotenv()
-chain_provider, chain_model = "Anthropic", "claude-3-opus-20240229"  # You can adjust these as needed
-chain_llm = LLMManager.load_llm(chain_provider, chain_model)
+
+LLMManager.initialize_ollama_models()
 
 # Set up vector store and retriever
 @st.cache_resource
@@ -25,6 +25,9 @@ def setup_vectorstore():
 
 vectorstore = setup_vectorstore()
 retriever = retriever_tool_meta(vectorstore)
+
+
+
 
 CODE_EVALUATION_PROMPT = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template("""You are an AI teaching assistant specialized in evaluating Python code. Your task is to analyze the submitted code and evaluate it against the given practice question. Evaluate the code based on:
@@ -57,8 +60,14 @@ Question: (The actual practice question)
 Explanation: (A brief explanation of what the question is testing and why it's important)
 Skill Level: (The skill level this question is appropriate for)
 Justification: (Why this question is appropriate for the given skill level)"""),
-    HumanMessagePromptTemplate.from_template("Please generate a practice question for the following topic: {topic}. The user's skill level is: {skill_level}. Use the following context if relevant: {context}")
+    HumanMessagePromptTemplate.from_template("Please generate a practice question for the following topic: {topic}. The user's skill level is: {skill_level}.")
 ])
+
+
+
+
+
+
 
 # Helper function to format retrieved documents
 def format_docs(docs):
@@ -69,13 +78,7 @@ def get_code_context(code):
     retrieved_docs = retriever(code)
     return format_docs(retrieved_docs)
 
-# Set up the RAG chain for code evaluation
-code_evaluation_chain = (
-    RunnablePassthrough.assign(context=lambda x: get_code_context(x['code']))
-    | CODE_EVALUATION_PROMPT
-    | chain_llm
-    | StrOutputParser()
-)
+
 
 # Helper function to get context for practice questions
 def get_question_context(input_dict):
@@ -112,13 +115,25 @@ def debug_input(x):
     print(f"Input to LLM: {x}")
     return x
 
-# Set up the chain for practice question generation
-practice_question_chain = (
-    RunnablePassthrough.assign(context=get_question_context)
-    | PRACTICE_QUESTION_PROMPT
-    | chain_llm
-    | StrOutputParser()
-)
+def setup_sidebar():
+    st.sidebar.title("Python Learning Assistant Configuration")
+
+    # LLM selection for Code Evaluation
+    code_eval_provider = st.sidebar.selectbox("AI for Code Evaluation", 
+                                              list(LLMManager.get_provider_models().keys()))
+    code_eval_model = st.sidebar.selectbox("Model for Code Evaluation", 
+                                           LLMManager.get_models_for_provider(code_eval_provider))
+
+    st.sidebar.write("---")
+
+    # LLM selection for Practice Question Generation
+    question_gen_provider = st.sidebar.selectbox("AI for Question Generation", 
+                                                 list(LLMManager.get_provider_models().keys()))
+    question_gen_model = st.sidebar.selectbox("Model for Question Generation", 
+                                              LLMManager.get_models_for_provider(question_gen_provider))
+
+    return code_eval_provider, code_eval_model, question_gen_provider, question_gen_model
+
 # Streamlit UI components
 st.title("Python Learning Assistant")
 
@@ -141,6 +156,31 @@ if 'question_generated' not in st.session_state:
 # Sidebar for navigation
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["Practice Questions", "Code Evaluation"])
+
+# Add the new sidebar configuration
+code_eval_provider, code_eval_model, question_gen_provider, question_gen_model = setup_sidebar()
+
+# Load the LLMs after the sidebar setup
+code_eval_llm = LLMManager.load_llm(code_eval_provider, code_eval_model)
+question_gen_llm = LLMManager.load_llm(question_gen_provider, question_gen_model)
+
+# Set up the chain for practice question generation
+practice_question_chain = (
+    RunnablePassthrough.assign(context=get_question_context)
+    | PRACTICE_QUESTION_PROMPT
+    | RunnableLambda(debug_input)
+    | question_gen_llm
+    | StrOutputParser()
+)
+
+# Set up the RAG chain for code evaluation
+code_evaluation_chain = (
+    RunnablePassthrough.assign(context=lambda x: get_code_context(x['code']))
+    | CODE_EVALUATION_PROMPT
+    | code_eval_llm
+    | StrOutputParser()
+)
+
 
 if page == "Practice Questions":
     st.header("Generate Practice Questions")
