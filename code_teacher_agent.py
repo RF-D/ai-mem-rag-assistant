@@ -12,6 +12,7 @@ from tools.retriever_tools import retriever_tool_meta
 from langchain_pinecone import PineconeVectorStore
 from tools.voyage_embeddings import vo_embed
 from dotenv import load_dotenv
+from streamlit_ace import st_ace
 
 # Load environment variables and set up LLM
 load_dotenv()
@@ -230,7 +231,7 @@ if page == "Practice Questions":
 
 elif page == "Code Evaluation":
     st.header("Code Evaluation")
-
+    
     # Display current practice question
     if st.session_state.question_generated:
         st.subheader("Current Practice Question")
@@ -238,15 +239,35 @@ elif page == "Code Evaluation":
     else:
         st.warning("No practice question generated yet. Please go to the Practice Questions page to generate a question first.")
 
+    
     # Code input area
-    st.session_state.code_input = st.text_area("Enter your Python code here:", value=st.session_state.code_input, height=200)
+    code_editor_box = st_ace(language="python", theme="dracula",show_gutter=True,auto_update=True,wrap=True, value=st.session_state.code_input)
+    
+    # Custom CSS for button styling
+    st.markdown("""
+    <style>
+    .stApp button[kind="primary"] {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     # Evaluation button
-    if st.button("Evaluate Code"):
-        if st.session_state.code_input and st.session_state.question_generated:
+    if st.button("Evaluate Code", key='custom_apply', type="primary"):
+        if code_editor_box and st.session_state.question_generated:
             with st.spinner("Evaluating code..."):
                 evaluation_input = {
-                    "code": st.session_state.code_input,
+                    "code": code_editor_box,
                     "practice_question": st.session_state.current_practice_question['question']
                 }
                 st.session_state.code_evaluation = code_evaluation_chain.invoke(evaluation_input)
@@ -256,6 +277,7 @@ elif page == "Code Evaluation":
             st.warning("Please generate a practice question first.")
         else:
             st.warning("Please enter some code to evaluate.")
-    
-
+    st.session_state.code_input = code_editor_box
+        
+  
 
