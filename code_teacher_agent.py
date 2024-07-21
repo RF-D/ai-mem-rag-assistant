@@ -153,6 +153,8 @@ if 'current_practice_question' not in st.session_state:
     st.session_state.current_practice_question = None
 if 'question_generated' not in st.session_state:
     st.session_state.question_generated = False
+if 'new_question_generated' not in st.session_state:
+    st.session_state.new_question_generated = False
 
 # Sidebar for navigation
 st.sidebar.title("Navigation")
@@ -185,7 +187,7 @@ code_evaluation_chain = (
 
 if page == "Practice Questions":
     st.header("Generate Practice Questions")
-
+    
     # Display current practice question if it exists
     if st.session_state.question_generated:
         st.subheader("Current Practice Question")
@@ -213,10 +215,12 @@ if page == "Practice Questions":
                 st.session_state.practice_question = parse_practice_question(raw_response)
                 st.session_state.current_practice_question = st.session_state.practice_question  # Store the current question
                 st.session_state.question_generated = True  # Set the flag
-
+                st.session_state.new_question_generated = True  # Set the new flag
+                st.session_state.code_input = ""  # Clear the code input
+                
                 # Display raw response for debugging
-                st.subheader("Raw AI Response")
-                st.text(raw_response)
+                #st.subheader("Raw AI Response")
+                #st.text(raw_response)
 
                 # Display parsed response
                 st.subheader("Parsed Practice Question")
@@ -239,10 +243,24 @@ elif page == "Code Evaluation":
     else:
         st.warning("No practice question generated yet. Please go to the Practice Questions page to generate a question first.")
 
+    # Function to update code input
+    def update_code_input():
+        st.session_state.code_input = st.session_state.temp_code_input
+
+    # Code input area using st_ace
+    st.session_state.temp_code_input = st_ace(
+        value=st.session_state.code_input,
+        language="python",
+        theme="dracula",
+        show_gutter=True,
+        auto_update=True,
+        wrap=False,
+        key="code_editor"
+    )
+
     
-    # Code input area
-    code_editor_box = st_ace(language="python", theme="dracula",show_gutter=True,auto_update=True,wrap=True, value=st.session_state.code_input)
-    
+    update_code_input()
+
     # Custom CSS for button styling
     st.markdown("""
     <style>
@@ -261,13 +279,16 @@ elif page == "Code Evaluation":
     }
     </style>
     """, unsafe_allow_html=True)
-
+   
     # Evaluation button
     if st.button("Evaluate Code", key='custom_apply', type="primary"):
-        if code_editor_box and st.session_state.question_generated:
+        # Update the code input before evaluation
+        update_code_input()
+        
+        if st.session_state.code_input and st.session_state.question_generated:
             with st.spinner("Evaluating code..."):
                 evaluation_input = {
-                    "code": code_editor_box,
+                    "code": st.session_state.code_input,
                     "practice_question": st.session_state.current_practice_question['question']
                 }
                 st.session_state.code_evaluation = code_evaluation_chain.invoke(evaluation_input)
@@ -277,7 +298,3 @@ elif page == "Code Evaluation":
             st.warning("Please generate a practice question first.")
         else:
             st.warning("Please enter some code to evaluate.")
-    st.session_state.code_input = code_editor_box
-        
-  
-
