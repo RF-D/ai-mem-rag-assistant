@@ -4,11 +4,20 @@
 
 ### Requirements
 
+#### Python
+
 Use `pip` to install the libraries listed in `requirements.txt`.
 
 ```bash
 pip install -r requirements.txt
 ```
+
+#### Ollama
+
+```bash
+brew install ollama
+```
+
 
 ### Virtual Environment
 
@@ -49,7 +58,12 @@ Visit https://www.voyageai.com/ to setup an account and generate an API key.
 
 Visit https://www.pinecone.io/ to setup an account. 
 
-- TODO
+Feel free to use Pinecone's curl script to create your first index (called
+"quickstart"). However, for this project, you'll need to create a new index
+called "langchain".
+
+Use the same options as the quickstart curl script to create the "langchanin"
+index.
 
 ## Usage
 
@@ -60,6 +74,9 @@ Start the Streamlit application
 # source venv/bin/activate
 
 streamlit run st_ui_rag.py
+
+# Remember to deactive your virtual environment
+# deactivate
 ```
 
 You can now view your Streamlit app in your browser.
