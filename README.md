@@ -65,6 +65,11 @@ called "langchain".
 Use the same options as the quickstart curl script to create the "langchanin"
 index.
 
+#### Anthropic
+
+Visit the Anthropic console to create an API key
+https://console.anthropic.com/dashboard
+
 ## Usage
 
 Start the Streamlit application
