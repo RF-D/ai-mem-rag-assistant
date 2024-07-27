@@ -48,17 +48,17 @@ def setup_sidebar():
     st.sidebar.title("AI MEM Configuration") 
     
     # LLM selection for Response Generation
-    chain_provider = st.sidebar.selectbox("Select LLM Provider for Response Generation", 
+    chain_provider = st.sidebar.selectbox("Choose AI assistant response generation", 
                                           list(LLMManager.get_provider_models().keys()))
-    chain_model = st.sidebar.selectbox("Select Model for Response Generation", 
+    chain_model = st.sidebar.selectbox("Select specific model for responses", 
                                        LLMManager.get_models_for_provider(chain_provider))
 
     st.sidebar.write("---")
 
     # LLM selection for Querying Retriever
-    search_query_provider = st.sidebar.selectbox("Select LLM Provider for Querying Retriever", 
+    search_query_provider = st.sidebar.selectbox("Choose AI assistant for relevant information retrieval", 
                                                  list(LLMManager.get_provider_models().keys()))
-    search_query_model = st.sidebar.selectbox("Select Model for Querying Retriever", 
+    search_query_model = st.sidebar.selectbox("Select specific model for retrieval", 
                                               LLMManager.get_models_for_provider(search_query_provider))
 
     return chain_provider, chain_model, search_query_provider, search_query_model
@@ -79,7 +79,7 @@ def load_vectorstore(index_name):
     embeddings = vo_embed()
     return PineconeVectorStore.from_existing_index(embedding=embeddings, index_name=index_name)
 
-pinecone_index_name = st.sidebar.text_input("IndexName for Retreiving", value="langchain")
+pinecone_index_name = st.sidebar.text_input("Choose where the AI should look for information: (IndexName)", value="langchain")
 vectorstore = load_vectorstore(pinecone_index_name)
 
 # Setup retriever
@@ -218,7 +218,7 @@ if selected_function == "Sitemap Scraper":
     st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
 
 
-if st.sidebar.button("Submit URL Function", key="url_submit"):
+if st.sidebar.button("URL Submit", key="url_submit"):
     if url:
         if selected_function == "Sitemap Scraper":
             try:
@@ -295,19 +295,28 @@ with st.sidebar.expander("Upload and Embed Documents"):
         text_input = st.text_area("Paste your text here")
         if text_input:
             loaded_docs = load_documents(text=text_input)
+    
+    # Add index name input field
+    if "upload_index_name" not in st.session_state:
+        st.session_state.upload_index_name = ""
+    
+    st.session_state.upload_index_name = st.text_input("Index Name for File/Text Uploader", value=st.session_state.upload_index_name)
+
 
     if st.button("Embed Documents", key="embed_documents"):
-        if loaded_docs:
+        if loaded_docs and st.session_state.upload_index_name:
             try:
                 embeddings = vo_embed()
                 PineconeVectorStore.from_documents(
-                    documents=loaded_docs, embedding=embeddings, index_name="qa")
+                    documents=loaded_docs, embedding=embeddings, index_name=st.session_state.upload_index_name)
                 st.success("Embedding completed successfully!")
             except Exception as e:
                 st.error(f"Embedding failed: {str(e)}")
                 st.error("Please check the error message and try again.")
-        else:
+        elif not loaded_docs:
             st.warning("No documents to embed.")
+        else:
+            st.warning("Please enter an index name for embedding.")
 
 # Reset chat history button
 if st.sidebar.button("Reset Chat History"):
