@@ -23,7 +23,7 @@ class LLMManager:
     provider_models = {
         "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-5-sonnet-20240620", "claude-3-opus-20240229"],
         "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
-        "Groq": ["llama3-70b-8192"],
+        "Groq": ["llama-3.1-405b-reasoning","llama-3.1-70b-versatile"],
         "Ollama": []
     }
     MAX_HISTORY_TOKENS = 40000
