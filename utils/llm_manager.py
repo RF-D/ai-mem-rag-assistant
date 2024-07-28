@@ -22,8 +22,8 @@ import streamlit as st
 class LLMManager:
     provider_models = {
         "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-5-sonnet-20240620", "claude-3-opus-20240229"],
-        "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
-        "Groq": ["llama-3.1-70b-versatile","llama-3.1-405b-reasoning"],
+        "OpenAI": ["gpt-4o-mini","gpt-4o","gpt-3.5-turbo"],
+        "Groq": ["llama-3.1-70b-versatile","llama-3.1-405b-reasoning","llama3-groq-70b-8192-tool-use-preview"],
         "Ollama": []
     }
     MAX_HISTORY_TOKENS = 40000
