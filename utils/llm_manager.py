@@ -23,7 +23,7 @@ class LLMManager:
     provider_models = {
         "Anthropic": ["claude-3-haiku-20240307", "claude-3-sonnet-20240229", "claude-3-5-sonnet-20240620", "claude-3-opus-20240229"],
         "OpenAI": ["gpt-3.5-turbo", "gpt-4o"],
-        "Groq": ["llama-3.1-405b-reasoning","llama-3.1-70b-versatile"],
+        "Groq": ["llama-3.1-70b-versatile","llama-3.1-405b-reasoning"],
         "Ollama": []
     }
     MAX_HISTORY_TOKENS = 40000
@@ -103,7 +103,7 @@ class LLMManager:
         providers = {
             "Anthropic": lambda: ChatAnthropic(model=model, temperature=0.8, streaming=True),
             "OpenAI": lambda: ChatOpenAI(model=model, temperature=0.7),
-            "Groq": lambda: ChatGroq(model_name="llama3-70b-8192", temperature=0.7),
+            "Groq": lambda: ChatGroq(model_name=model, temperature=0.7, max_tokens=2048),
             "Ollama": lambda: ChatOllama(model=model,temperature=0.8, streaming=True)
         }
         if provider not in providers:
