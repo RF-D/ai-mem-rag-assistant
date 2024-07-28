@@ -1,5 +1,8 @@
 
 #pip install -r requirements.txt
+tenacity
+ratelimit
+docstring-parser>=0.16,<0.17
 streamlit-ace
 psutil
 tiktoken

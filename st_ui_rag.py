@@ -227,9 +227,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
 
                 def progress_callback(current, total):
                     progress_bar.progress(current / total)
-
                 scrape_sitemap(url, st.session_state.index_name, progress_callback)
-
                 st.sidebar.success("Sitemap scraped and results embedded successfully!")
             except Exception as e:
                 st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
@@ -266,7 +264,7 @@ if "split_result" in st.session_state and selected_function != "Sitemap Scraper"
             try:
                 embeddings = vo_embed()
                 PineconeVectorStore.from_documents(
-                    documents=split_result, embedding=embeddings, index_name=st.session_state.pinecone_index_name)
+                    documents=split_result, embedding=embeddings, index_name=st.session_state.index_name)
                 st.sidebar.success("Embedding completed successfully!")
             except Exception as e:
                 st.sidebar.error(f"Embedding failed: {str(e)}")
