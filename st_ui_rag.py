@@ -203,7 +203,6 @@ functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap
 
 selected_function = st.sidebar.selectbox("Select a function", list(functions.keys()))
 
-
 url = st.sidebar.text_input("Enter a URL")
 
 split_result = None
@@ -238,12 +237,22 @@ if st.sidebar.button("URL Submit", key="url_submit"):
             split_result = split_text(fn_result)
             # Store the split_result in session state
             st.session_state.split_result = split_result
+        elif selected_function == "Crawl":
+            fn_result = functions[selected_function](url)
+            if fn_result is not None:
+                split_result = split_md(fn_result)
+                st.session_state.split_result = split_result
+            else:
+                st.error("An error occurred during crawling. Please check the logs for more information.")
         else:
             # Call the selected function with the provided URL and split the result
             fn_result = functions[selected_function](url)
             split_result = split_md(fn_result)
-            # Store the split_result in session state
-            st.session_state.split_result = split_result
+            if split_result:
+                st.session_state.split_result = split_result
+                st.success(f"{selected_function} completed successfully!")
+            else:
+                st.warning(f"{selected_function} completed, but no results were found.")
     else:
         st.warning("Please enter a valid URL.")
 
@@ -299,7 +308,6 @@ with st.sidebar.expander("Upload and Embed Documents"):
         st.session_state.upload_index_name = ""
     
     st.session_state.upload_index_name = st.text_input("Index Name for File/Text Uploader", value=st.session_state.upload_index_name)
-
 
     if st.button("Embed Documents", key="embed_documents"):
         if loaded_docs and st.session_state.upload_index_name:
