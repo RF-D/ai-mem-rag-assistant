@@ -13,32 +13,39 @@ firecrawl_api_key = load_env_vars()[2]
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# FireCrawl Setup
-crawl_params = {
-    'crawlerOptions': {
-        'excludes': [],
-        'includes': [],  # leave empty for all pages
-        'pagelimit': 5,
-        'crawldelay': 0.5, 
+# Default FireCrawl Setup
+default_crawl_params = {
+    "crawlerOptions": {
+        "excludes": [],
+        "includes": [],
+        "maxDepth": 3,
+        "limit": 50,
+        "crawldelay": 0.5,
     },
-    'pageOptions': {
-        'onlyMainContent': True
-    }
+    "pageOptions": {"onlyMainContent": True},
 }
 
-def crawl(url, params=crawl_params, wait_until_done=True, timeout=300, check_interval=5):
+
+def get_default_crawl_params():
+    return default_crawl_params
+
+
+def crawl(url, params=None, wait_until_done=True, timeout=300, check_interval=5):
     try:
         app = FirecrawlApp(api_key=firecrawl_api_key)
-
+        # Use the provided params if available, otherwise use default crawl_params
+        crawl_params_to_use = params if params is not None else crawl_params
         # Start the crawl job
-        crawl_result = app.crawl_url(url, params=params, wait_until_done=False)
+        crawl_result = app.crawl_url(
+            url, params=crawl_params_to_use, wait_until_done=False
+        )
         logger.info(f"Crawl job started: {crawl_result}")
 
         if not wait_until_done:
             return crawl_result
 
         # Check the status of the crawl job continually until done
-        job_id = crawl_result['jobId']
+        job_id = crawl_result["jobId"]
         start_time = time.time()
         status_text = st.empty()
 
@@ -46,7 +53,7 @@ def crawl(url, params=crawl_params, wait_until_done=True, timeout=300, check_int
             status = app.check_crawl_status(job_id)
             logger.info(f"Current status: {status['status']}")
             status_text.text(f"Crawling: {status['status']}")
-            if status['status'] in ['completed', 'failed']:
+            if status["status"] in ["completed", "failed"]:
                 break
 
             if time.time() - start_time > timeout:
@@ -57,9 +64,8 @@ def crawl(url, params=crawl_params, wait_until_done=True, timeout=300, check_int
             time.sleep(check_interval)
 
         # If the crawl is completed, process the result
-        if status['status'] == 'completed':
+        if status["status"] == "completed":
             logger.info("Crawl completed successfully")
-            
 
             # Save the raw result to a file
             # with open(f"crawl_result_{job_id}.json", "w", encoding="utf-8") as f:
@@ -67,14 +73,14 @@ def crawl(url, params=crawl_params, wait_until_done=True, timeout=300, check_int
 
             # Process the data for Langchain
             documents = []
-            for item in status.get('data', []):
+            for item in status.get("data", []):
                 doc = Document(
-                    page_content=item.get('markdown', ''),
+                    page_content=item.get("markdown", ""),
                     metadata={
-                        'url': item.get('sourceURL', ''),
-                        'title': item.get('title', ''),
-                        'description': item.get('description', '')
-                    }
+                        "url": item.get("sourceURL", ""),
+                        "title": item.get("title", ""),
+                        "description": item.get("description", ""),
+                    },
                 )
                 documents.append(doc)
 
