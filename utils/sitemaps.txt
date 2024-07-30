@@ -6,4 +6,4 @@ https://docs.anthropic.com/sitemap.xml
 
 https://www.programiz.com/sitemap.xml
 
-firecrawl
+https://docs.firecrawl.dev/sitemap.xml

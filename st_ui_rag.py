@@ -1,4 +1,3 @@
-
 import os
 import tempfile
 import streamlit as st
@@ -7,13 +6,19 @@ from functools import lru_cache
 from operator import itemgetter
 from dotenv import load_dotenv
 from utils.llm_manager import LLMManager
+
 # Langchain imports
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.runnables import RunnablePassthrough, RunnableBranch, RunnableLambda, RunnableParallel
+from langchain_core.runnables import (
+    RunnablePassthrough,
+    RunnableBranch,
+    RunnableLambda,
+    RunnableParallel,
+)
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.prompts import format_document
@@ -27,7 +32,7 @@ from tools.doc_loader import load_documents
 from tools.retriever_tools import retriever_tool_meta
 from tools.firecrawl_scrape_loader import scrape
 from tools.text_splitter import split_md, split_text
-from tools.firecrawl_crawl_loader import crawl
+from tools.firecrawl_crawl_loader import crawl, get_default_crawl_params
 from scrape_sitemap import scrape_sitemap
 from tools.youtube_chat import youtube_chat
 
@@ -36,32 +41,52 @@ load_dotenv()
 
 LLMManager.initialize_ollama_models()
 MAX_HISTORY_TOKENS = LLMManager.MAX_HISTORY_TOKENS
-
+SITEMAP_SCRAPER = "Sitemap Scraper"
+YOUTUBE_CHAT = "Youtube Chat"
+SCRAPE = "Scrape"
+CRAWL = "Crawl"
 
 # Streamlit app
+if "selected_function" not in st.session_state:
+    st.session_state.selected_function = "Scrape"
+
 
 # Set page configuration
 st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
 
 
+# Define a callback function
+def update_selected_function():
+    st.session_state.selected_function = st.session_state.function_selector
+
+
 def setup_sidebar():
-    st.sidebar.title("AI MEM Configuration") 
-    
+    st.sidebar.title("AI MEM Configuration")
+
     # LLM selection for Response Generation
-    chain_provider = st.sidebar.selectbox("Choose AI assistant response generation", 
-                                          list(LLMManager.get_provider_models().keys()))
-    chain_model = st.sidebar.selectbox("Select specific model for responses", 
-                                       LLMManager.get_models_for_provider(chain_provider))
+    chain_provider = st.sidebar.selectbox(
+        "Choose AI assistant response generation",
+        list(LLMManager.get_provider_models().keys()),
+    )
+    chain_model = st.sidebar.selectbox(
+        "Select specific model for responses",
+        LLMManager.get_models_for_provider(chain_provider),
+    )
 
     st.sidebar.write("---")
 
     # LLM selection for Querying Retriever
-    search_query_provider = st.sidebar.selectbox("Choose AI assistant for relevant information retrieval", 
-                                                 list(LLMManager.get_provider_models().keys()))
-    search_query_model = st.sidebar.selectbox("Select specific model for retrieval", 
-                                              LLMManager.get_models_for_provider(search_query_provider))
+    search_query_provider = st.sidebar.selectbox(
+        "Choose AI assistant for relevant information retrieval",
+        list(LLMManager.get_provider_models().keys()),
+    )
+    search_query_model = st.sidebar.selectbox(
+        "Select specific model for retrieval",
+        LLMManager.get_models_for_provider(search_query_provider),
+    )
 
     return chain_provider, chain_model, search_query_provider, search_query_model
+
 
 # In your main app logic
 chain_provider, chain_model, search_query_provider, search_query_model = setup_sidebar()
@@ -71,23 +96,29 @@ chain_llm = LLMManager.load_llm(chain_provider, chain_model)
 search_query_llm = LLMManager.load_llm(search_query_provider, search_query_model)
 
 
-
 # Setup VectorDB
-
 @lru_cache(maxsize=1)
 def load_vectorstore(index_name):
     embeddings = vo_embed()
-    return PineconeVectorStore.from_existing_index(embedding=embeddings, index_name=index_name)
+    return PineconeVectorStore.from_existing_index(
+        embedding=embeddings, index_name=index_name
+    )
 
-pinecone_index_name = st.sidebar.text_input("Choose where the AI should look for information: (IndexName)", value="langchain")
+
+pinecone_index_name = st.sidebar.text_input(
+    "Choose where the AI should look for information: (IndexName)", value="langchain"
+)
 vectorstore = load_vectorstore(pinecone_index_name)
+
 
 # Setup retriever
 @lru_cache(maxsize=1)
 def load_retriever():
     return retriever_tool_meta(vectorstore)
 
+
 retriever = load_retriever()
+
 
 # RAG setup
 @lru_cache(maxsize=1)
@@ -99,7 +130,9 @@ def load_condense_question_prompt():
     Standalone question:"""  # noqa: E501
     return PromptTemplate.from_template(_template)
 
+
 CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
+
 
 @lru_cache(maxsize=1)
 def load_answer_prompt():
@@ -118,11 +151,11 @@ If the context provided is sufficient to answer the question, use it to formulat
         ]
     )
 
+
 ANSWER_PROMPT = load_answer_prompt()
 
 # Conversational Retrieval Chain
-DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(
-    template="{page_content}")
+DEFAULT_DOCUMENT_PROMPT = PromptTemplate.from_template(template="{page_content}")
 
 
 def _combine_documents(
@@ -147,8 +180,7 @@ def _format_chat_history(chat_history: List[Tuple[str, str]]) -> List:
 
 # User input
 class ChatHistory(BaseModel):
-    chat_history: List[Tuple[str, str]] = Field(..., extra={
-                                                "widget": {"type": "chat"}})
+    chat_history: List[Tuple[str, str]] = Field(..., extra={"widget": {"type": "chat"}})
     question: str
 
 
@@ -157,11 +189,16 @@ _search_query = RunnableBranch(
     (
         RunnableLambda(lambda x: bool(x.get("chat_history"))).with_config(
             run_name="HasChatHistoryCheck"
-        ),  
+        ),
         # Condense follow-up question and chat into a standalone_question
         RunnablePassthrough.assign(
-            chat_history=lambda x: _format_chat_history(x["chat_history"][:-1] if x["chat_history"] and x["chat_history"][-1]["content"] == x["question"] else x["chat_history"]),
-            question=lambda x: x["question"]
+            chat_history=lambda x: _format_chat_history(
+                x["chat_history"][:-1]
+                if x["chat_history"]
+                and x["chat_history"][-1]["content"] == x["question"]
+                else x["chat_history"]
+            ),
+            question=lambda x: x["question"],
         )
         | CONDENSE_QUESTION_PROMPT
         | search_query_llm
@@ -174,7 +211,11 @@ _search_query = RunnableBranch(
 _inputs = RunnableParallel(
     {
         "question": lambda x: x["question"],
-        "chat_history": lambda x: _format_chat_history(x["chat_history"][:-1] if x["chat_history"] and x["chat_history"][-1]["content"] == x["question"] else x["chat_history"]),
+        "chat_history": lambda x: _format_chat_history(
+            x["chat_history"][:-1]
+            if x["chat_history"] and x["chat_history"][-1]["content"] == x["question"]
+            else x["chat_history"]
+        ),
         "context": _search_query | retriever | _combine_documents,
     }
 ).with_types(input_type=ChatHistory)
@@ -182,11 +223,11 @@ _inputs = RunnableParallel(
 chain = _inputs | ANSWER_PROMPT | chain_llm | StrOutputParser(verbose=True)
 
 
-
 # Load and cache the embedding model for vector embeddings.
 @st.cache_resource
 def load_embedding_model():
     return vo_embed()
+
 
 embeddings = load_embedding_model()
 
@@ -194,29 +235,84 @@ embeddings = load_embedding_model()
 # Create a sidebar
 sidebar = st.sidebar
 
-# Add sidebar title and description
 sidebar.title("Rag Chat Tools")
 
-
 # Create a dropdown menu to select the function to call
-functions = {"Scrape": scrape, "Crawl": crawl, "Sitemap Scraper": scrape_sitemap, "Youtube Chat": youtube_chat}
+functions = {
+    SCRAPE: scrape,
+    CRAWL: crawl,
+    SITEMAP_SCRAPER: scrape_sitemap,
+    YOUTUBE_CHAT: youtube_chat,
+}
 
-selected_function = st.sidebar.selectbox("Select a function", list(functions.keys()))
-
-
-url = st.sidebar.text_input("Enter a URL")
 
 split_result = None
+
+
+# Function selection
+selected_function = st.sidebar.selectbox(
+    "Select a function",
+    list(functions.keys()),
+    key="function_selector",
+    index=list(functions.keys()).index(st.session_state.selected_function),
+    on_change=update_selected_function,
+)
+
+url = st.sidebar.text_input("Enter a URL")
 
 # Show the input field for index name only if the selected function is "Sitemap Scraper"
 if selected_function == "Sitemap Scraper":
     # Check if index_name exists in the session state
     if "index_name" not in st.session_state:
         st.session_state.index_name = ""
+    st.session_state.index_name = st.sidebar.text_input(
+        "Index Name", value=st.session_state.index_name
+    )
 
-    # Display the index name input field and update the session state
-    st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
 
+# Initialize session state variables if they don't exist
+if "crawl_params" not in st.session_state:
+    st.session_state.crawl_params = get_default_crawl_params()
+
+# Show crawl parameters only when "Crawl" is selected
+if selected_function == "Crawl":
+    with st.sidebar.form("crawl_params_form"):
+        st.header("Crawl Parameters")
+
+        max_depth = st.number_input(
+            "Max Depth",
+            min_value=1,
+            max_value=10,
+            value=st.session_state.crawl_params["crawlerOptions"]["maxDepth"],
+        )
+
+        limit = st.number_input(
+            "Limit",
+            min_value=1,
+            max_value=1000,
+            value=st.session_state.crawl_params["crawlerOptions"]["limit"],
+        )
+
+        crawl_delay = st.number_input(
+            "Crawl Delay",
+            min_value=0.1,
+            max_value=5.0,
+            value=st.session_state.crawl_params["crawlerOptions"]["crawldelay"],
+            step=0.1,
+        )
+
+        only_main_content = st.checkbox(
+            "Only Main Content",
+            value=st.session_state.crawl_params["pageOptions"]["onlyMainContent"],
+        )
+
+        if st.form_submit_button("Apply Crawl Parameters"):
+            st.session_state.crawl_params["crawlerOptions"]["maxDepth"] = max_depth
+            st.session_state.crawl_params["crawlerOptions"]["limit"] = limit
+            st.session_state.crawl_params["crawlerOptions"]["crawldelay"] = crawl_delay
+            st.session_state.crawl_params["pageOptions"][
+                "onlyMainContent"
+            ] = only_main_content
 
 if st.sidebar.button("URL Submit", key="url_submit"):
     if url:
@@ -227,6 +323,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
 
                 def progress_callback(current, total):
                     progress_bar.progress(current / total)
+
                 scrape_sitemap(url, st.session_state.index_name, progress_callback)
                 st.sidebar.success("Sitemap scraped and results embedded successfully!")
             except Exception as e:
@@ -238,12 +335,26 @@ if st.sidebar.button("URL Submit", key="url_submit"):
             split_result = split_text(fn_result)
             # Store the split_result in session state
             st.session_state.split_result = split_result
+        elif selected_function == "Crawl":
+            fn_result = functions[selected_function](
+                url, params=st.session_state.crawl_params
+            )
+            if fn_result is not None:
+                split_result = split_md(fn_result)
+                st.session_state.split_result = split_result
+            else:
+                st.error(
+                    "An error occurred during crawling. Please check the logs for more information."
+                )
         else:
             # Call the selected function with the provided URL and split the result
             fn_result = functions[selected_function](url)
             split_result = split_md(fn_result)
-            # Store the split_result in session state
-            st.session_state.split_result = split_result
+            if split_result:
+                st.session_state.split_result = split_result
+                st.success(f"{selected_function} completed successfully!")
+            else:
+                st.warning(f"{selected_function} completed, but no results were found.")
     else:
         st.warning("Please enter a valid URL.")
 
@@ -258,13 +369,18 @@ if "split_result" in st.session_state and selected_function != "Sitemap Scraper"
             st.session_state.index_name = ""
 
         # Display the index name input field and update the session state
-        st.session_state.index_name = st.sidebar.text_input("Index Name", value=st.session_state.index_name)
+        st.session_state.index_name = st.sidebar.text_input(
+            "Index Name", value=st.session_state.index_name
+        )
 
         if st.sidebar.button("Add to Memory", key="add_to_memory"):
             try:
                 embeddings = vo_embed()
                 PineconeVectorStore.from_documents(
-                    documents=split_result, embedding=embeddings, index_name=st.session_state.index_name)
+                    documents=split_result,
+                    embedding=embeddings,
+                    index_name=st.session_state.index_name,
+                )
                 st.sidebar.success("Embedding completed successfully!")
             except Exception as e:
                 st.sidebar.error(f"Embedding failed: {str(e)}")
@@ -280,7 +396,9 @@ with st.sidebar.expander("Upload and Embed Documents"):
         uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
         if uploaded_file:
             # Save the uploaded file to a temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}') as temp_file:
+            with tempfile.NamedTemporaryFile(
+                delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}'
+            ) as temp_file:
                 temp_file.write(uploaded_file.getvalue())
                 temp_file_path = temp_file.name
 
@@ -293,20 +411,24 @@ with st.sidebar.expander("Upload and Embed Documents"):
         text_input = st.text_area("Paste your text here")
         if text_input:
             loaded_docs = load_documents(text=text_input)
-    
+
     # Add index name input field
     if "upload_index_name" not in st.session_state:
         st.session_state.upload_index_name = ""
-    
-    st.session_state.upload_index_name = st.text_input("Index Name for File/Text Uploader", value=st.session_state.upload_index_name)
 
+    st.session_state.upload_index_name = st.text_input(
+        "Index Name for File/Text Uploader", value=st.session_state.upload_index_name
+    )
 
     if st.button("Embed Documents", key="embed_documents"):
         if loaded_docs and st.session_state.upload_index_name:
             try:
                 embeddings = vo_embed()
                 PineconeVectorStore.from_documents(
-                    documents=loaded_docs, embedding=embeddings, index_name=st.session_state.upload_index_name)
+                    documents=loaded_docs,
+                    embedding=embeddings,
+                    index_name=st.session_state.upload_index_name,
+                )
                 st.success("Embedding completed successfully!")
             except Exception as e:
                 st.error(f"Embedding failed: {str(e)}")
@@ -320,13 +442,18 @@ with st.sidebar.expander("Upload and Embed Documents"):
 if st.sidebar.button("Reset Chat History"):
     st.session_state.messages = []
 
-def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) -> Tuple[List[Dict[str, str]], int]:
+
+def trim_chat_history(
+    messages: List[Dict[str, str]], max_tokens: int = 8000
+) -> Tuple[List[Dict[str, str]], int]:
     trimmed_messages = []
     total_prompt_tokens = 0
     user_message_found = False
 
     for message in reversed(messages):
-        message_tokens = LLMManager.count_tokens(message["content"], chain_provider, chain_model)
+        message_tokens = LLMManager.count_tokens(
+            message["content"], chain_provider, chain_model
+        )
 
         if total_prompt_tokens + message_tokens > max_tokens and user_message_found:
             break
@@ -345,17 +472,20 @@ def trim_chat_history(messages: List[Dict[str, str]], max_tokens: int = 8000) ->
                     trimmed_messages.insert(0, message)
                 else:
                     trimmed_messages.append(message)
-                total_prompt_tokens += LLMManager.count_tokens(message["content"], chain_provider, chain_model)
+                total_prompt_tokens += LLMManager.count_tokens(
+                    message["content"], chain_provider, chain_model
+                )
                 break
 
     # If still no user message, add a dummy user message
     if not trimmed_messages or trimmed_messages[0]["role"] != "user":
         dummy_message = {"role": "user", "content": "Start of conversation"}
         trimmed_messages.insert(0, dummy_message)
-        total_prompt_tokens += LLMManager.count_tokens(dummy_message["content"], chain_provider, chain_model)
+        total_prompt_tokens += LLMManager.count_tokens(
+            dummy_message["content"], chain_provider, chain_model
+        )
 
     return trimmed_messages, total_prompt_tokens
-
 
 
 calculate_total_tokens = LLMManager.calculate_total_tokens
@@ -369,11 +499,11 @@ update_token_count = LLMManager.update_token_count
 
 st.title("Persistent Memory Conversational Agent")
 
-    
-#Initialize chat history
+
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    
+
 # Initialize token counters in session state
 if "total_prompt_tokens" not in st.session_state:
     st.session_state.total_prompt_tokens = 0
@@ -381,23 +511,26 @@ if "total_completion_tokens" not in st.session_state:
     st.session_state.total_completion_tokens = 0
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
-    
 
 
 for message in st.session_state.messages:
-    avatar = "utils/images/user_avatar.png" if message["role"] == "user" else "utils/images/queryqueen.png"
+    avatar = (
+        "utils/images/user_avatar.png"
+        if message["role"] == "user"
+        else "utils/images/queryqueen.png"
+    )
     with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
-# User input
+
 user_input = st.chat_input("Write something here...", key="input")
 
-# Display the scrape result below the user input 
+# Display the scrape result below the user input
 if split_result:
     with st.expander("Scrape Result", expanded=False):
         st.write(split_result)
 
-#Chat Container
+# Chat Container
 if user_input:
     # Display user input in chat message container
     with st.chat_message("user", avatar="utils/images/user_avatar.png"):
@@ -405,11 +538,12 @@ if user_input:
 
     # Append to chat history
     st.session_state.messages.append({"role": "user", "content": user_input})
-    
+
     # Trim chat history before sending to the model
-    trimmed_history, history_tokens = trim_chat_history(st.session_state.messages, MAX_HISTORY_TOKENS)
-    
-   
+    trimmed_history, history_tokens = trim_chat_history(
+        st.session_state.messages, MAX_HISTORY_TOKENS
+    )
+
     # Display assistant response in chat message container
     with st.chat_message("assistant", avatar="utils/images/queryqueen.png"):
         loading_message = st.empty()
@@ -417,30 +551,34 @@ if user_input:
         loading_message.markdown("Thinking...")
 
         result = ""
-        for token in chain.invoke(input={"question": user_input, "chat_history": trimmed_history}):
+        for token in chain.invoke(
+            input={"question": user_input, "chat_history": trimmed_history}
+        ):
             result += token
             loading_message.markdown(result)
-           
-   # Calculate prompt tokens
-    prompt_tokens = LLMManager.count_tokens(str({"question": user_input, "chat_history": trimmed_history}), chain_provider, chain_model)
+
+    # Calculate prompt tokens
+    prompt_tokens = LLMManager.count_tokens(
+        str({"question": user_input, "chat_history": trimmed_history}),
+        chain_provider,
+        chain_model,
+    )
 
     # Calculate completion tokens
     completion_tokens = LLMManager.count_tokens(result, chain_provider, chain_model)
-    
+
     # Update token counts
     LLMManager.update_token_count(st.session_state, prompt_tokens, completion_tokens)
-    
-    
+
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": result})
-    
-    
+
     # Trim chat history if needed, based on total tokens
     if st.session_state.total_tokens > LLMManager.MAX_HISTORY_TOKENS:
-        st.session_state.messages, new_prompt_tokens = trim_chat_history(st.session_state.messages, LLMManager.MAX_HISTORY_TOKENS)
+        st.session_state.messages, new_prompt_tokens = trim_chat_history(
+            st.session_state.messages, LLMManager.MAX_HISTORY_TOKENS
+        )
         LLMManager.reset_token_count(st.session_state, new_prompt_tokens)
 
     # Display updated token counts
     LLMManager.display_token_counts(st.sidebar, st.session_state)
-
-     
