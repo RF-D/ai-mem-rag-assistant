@@ -62,41 +62,6 @@ st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
 def update_selected_function():
     st.session_state.selected_function = st.session_state.function_selector
 
-    st.sidebar.title("AI MEM Configuration")
-
-    # LLM selection for Response Generation
-    chain_provider = st.sidebar.selectbox(
-        "Choose AI assistant response generation",
-        list(LLMManager.get_provider_models().keys()),
-    )
-    chain_model = st.sidebar.selectbox(
-        "Select specific model for responses",
-        LLMManager.get_models_for_provider(chain_provider),
-    )
-
-    st.sidebar.write("---")
-
-    # LLM selection for Querying Retriever
-    search_query_provider = st.sidebar.selectbox(
-        "Choose AI assistant for relevant information retrieval",
-        list(LLMManager.get_provider_models().keys()),
-    )
-    search_query_model = st.sidebar.selectbox(
-        "Select specific model for retrieval",
-        LLMManager.get_models_for_provider(search_query_provider),
-    )
-    pinecone_index_name = st.sidebar.text_input(
-        "Choose where the AI should look for information: (IndexName)",
-        value="langchain",
-    )
-    return (
-        chain_provider,
-        chain_model,
-        search_query_provider,
-        search_query_model,
-        pinecone_index_name,
-    )
-
 
 @lru_cache(maxsize=1)
 def load_vectorstore(index_name):
@@ -462,7 +427,9 @@ def trim_chat_history(
 
     for message in reversed(messages):
         message_tokens = LLMManager.count_tokens(
-            message["content"], chain_provider, chain_model
+            message["content"],
+            sidebar_config.chain_provider,
+            sidebar_config.chain_model,
         )
 
         if total_prompt_tokens + message_tokens > max_tokens and user_message_found:
@@ -483,7 +450,9 @@ def trim_chat_history(
                 else:
                     trimmed_messages.append(message)
                 total_prompt_tokens += LLMManager.count_tokens(
-                    message["content"], chain_provider, chain_model
+                    message["content"],
+                    sidebar_config.chain_provider,
+                    sidebar_config.chain_model,
                 )
                 break
 
@@ -492,7 +461,9 @@ def trim_chat_history(
         dummy_message = {"role": "user", "content": "Start of conversation"}
         trimmed_messages.insert(0, dummy_message)
         total_prompt_tokens += LLMManager.count_tokens(
-            dummy_message["content"], chain_provider, chain_model
+            dummy_message["content"],
+            sidebar_config.chain_provider,
+            sidebar_config.chain_model,
         )
 
     return trimmed_messages, total_prompt_tokens
@@ -570,12 +541,14 @@ if user_input:
     # Calculate prompt tokens
     prompt_tokens = LLMManager.count_tokens(
         str({"question": user_input, "chat_history": trimmed_history}),
-        chain_provider,
-        chain_model,
+        sidebar_config.chain_provider,
+        sidebar_config.chain_model,
     )
 
     # Calculate completion tokens
-    completion_tokens = LLMManager.count_tokens(result, chain_provider, chain_model)
+    completion_tokens = LLMManager.count_tokens(
+        result, sidebar_config.chain_provider, sidebar_config.chain_model
+    )
 
     # Update token counts
     LLMManager.update_token_count(st.session_state, prompt_tokens, completion_tokens)
