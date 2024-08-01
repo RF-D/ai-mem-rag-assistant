@@ -12,12 +12,16 @@ from dotenv import load_dotenv
 load_dotenv()
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
+
 SITEMAP_SCRAPER = "Sitemap Scraper"
 YOUTUBE_CHAT = "Youtube Chat"
 SCRAPE = "Scrape"
 CRAWL = "Crawl"
-# Get the list of index names
-PINECONE_INDEXES = [index.name for index in pc.list_indexes()]
+
+
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def get_pinecone_indexes():
+    return [index.name for index in pc.list_indexes()]
 
 
 @dataclass
@@ -59,6 +63,9 @@ def setup_sidebar() -> SidebarConfig:
         "Select specific model for retrieval",
         LLMManager.get_models_for_provider(search_query_provider),
     )
+    # Use the cached function to get Pinecone indexes
+    PINECONE_INDEXES = get_pinecone_indexes()
+
     pinecone_index_name = st.sidebar.selectbox(
         "Choose where the AI should look for information:",
         options=PINECONE_INDEXES,
