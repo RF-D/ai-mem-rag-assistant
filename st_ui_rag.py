@@ -32,6 +32,7 @@ from tools.doc_loader import load_documents
 from tools.retriever_tools import retriever_tool_meta
 
 from tools.text_splitter import split_md, split_text
+from scrape_sitemap import scrape_sitemap
 
 
 # Components
@@ -254,7 +255,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 def progress_callback(current, total):
                     progress_bar.progress(current / total)
 
-                sidebar_config.scrape_sitemap(
+                scrape_sitemap(
                     sidebar_config.url, st.session_state.index_name, progress_callback
                 )
                 st.sidebar.success("Sitemap scraped and results embedded successfully!")
