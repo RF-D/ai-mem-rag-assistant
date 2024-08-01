@@ -263,7 +263,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 st.sidebar.error("Please check the error message and try again.")
         elif sidebar_config.selected_function == "YouTube Chat":
             # Call the scrape_sitemap function without splitting the result
-            fn_result = sidebar_config.youtube_chat(url)
+            fn_result = sidebar_config.youtube_chat(sidebar_config.url)
             split_result = split_text(fn_result)
             # Store the split_result in session state
             st.session_state.split_result = split_result
@@ -280,7 +280,9 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 )
         else:
             # Call the selected function with the provided URL and split the result
-            fn_result = sidebar_config.functions[sidebar_config.selected_function](url)
+            fn_result = sidebar_config.functions[sidebar_config.selected_function](
+                sidebar_config.url
+            )
             split_result = split_md(fn_result)
             if split_result:
                 st.session_state.split_result = split_result

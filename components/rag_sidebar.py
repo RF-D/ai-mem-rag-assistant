@@ -29,6 +29,7 @@ class SidebarConfig:
     pinecone_index_name: str
     url: str
     selected_function: str
+    functions: dict
 
 
 # Update callback function
@@ -61,7 +62,7 @@ def setup_sidebar() -> SidebarConfig:
     pinecone_index_name = st.sidebar.selectbox(
         "Choose where the AI should look for information:",
         options=PINECONE_INDEXES,
-        index=0 if PINECONE_INDEXES else None,
+        index=1 if PINECONE_INDEXES else None,
     )
     st.sidebar.title("Rag Chat Tools")
 
@@ -90,4 +91,5 @@ def setup_sidebar() -> SidebarConfig:
         pinecone_index_name=pinecone_index_name,
         url=url,
         selected_function=selected_function,
+        functions=functions,
     )
