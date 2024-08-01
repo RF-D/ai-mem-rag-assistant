@@ -30,11 +30,9 @@ from tools.voyage_embeddings import vo_embed
 # Custom tools and loaders
 from tools.doc_loader import load_documents
 from tools.retriever_tools import retriever_tool_meta
-from tools.firecrawl_scrape_loader import scrape
+
 from tools.text_splitter import split_md, split_text
-from tools.firecrawl_crawl_loader import crawl, get_default_crawl_params
-from scrape_sitemap import scrape_sitemap
-from tools.youtube_chat import youtube_chat
+
 
 # Components
 from components.rag_sidebar import setup_sidebar
@@ -45,19 +43,10 @@ load_dotenv()
 
 LLMManager.initialize_ollama_models()
 MAX_HISTORY_TOKENS = LLMManager.MAX_HISTORY_TOKENS
-SITEMAP_SCRAPER = "Sitemap Scraper"
-YOUTUBE_CHAT = "Youtube Chat"
-SCRAPE = "Scrape"
-CRAWL = "Crawl"
 
 
 # Initialize the Streamlit app and get the sidebar configuration
 sidebar_config = initialize_streamlit_app()
-
-
-# Update callback function
-def update_selected_function():
-    st.session_state.selected_function = st.session_state.function_selector
 
 
 @lru_cache(maxsize=1)
@@ -205,40 +194,18 @@ embeddings = load_embedding_model()
 # Create a sidebar
 sidebar = st.sidebar
 
-sidebar.title("Rag Chat Tools")
-
-# Create a dropdown menu to select the function to call
-functions = {
-    SCRAPE: scrape,
-    CRAWL: crawl,
-    SITEMAP_SCRAPER: scrape_sitemap,
-    YOUTUBE_CHAT: youtube_chat,
-}
-
 
 split_result = None
 
-
-# Function selection
-selected_function = st.sidebar.selectbox(
-    "Select a function",
-    list(functions.keys()),
-    key="function_selector",
-    index=list(functions.keys()).index(st.session_state.selected_function),
-    on_change=update_selected_function,
-)
-
-url = st.sidebar.text_input("Enter a URL")
-
 # Show the input field for index name only if the selected function is "Sitemap Scraper"
-if selected_function == "Sitemap Scraper":
+if sidebar_config.selected_function == "Sitemap Scraper":
     st.session_state.index_name = st.sidebar.text_input(
         "Index Name", value=st.session_state.index_name
     )
 
 
 # Show crawl parameters only when "Crawl" is selected
-if selected_function == "Crawl":
+if sidebar_config.selected_function == "Crawl":
     with st.sidebar.form("crawl_params_form"):
         st.header("Crawl Parameters")
 
@@ -278,8 +245,8 @@ if selected_function == "Crawl":
             ] = only_main_content
 
 if st.sidebar.button("URL Submit", key="url_submit"):
-    if url:
-        if selected_function == "Sitemap Scraper":
+    if sidebar_config.url:
+        if sidebar_config.selected_function == "Sitemap Scraper":
             try:
                 # Display a progress bar in the sidebar while the function is running
                 progress_bar = st.sidebar.progress(0)
@@ -287,20 +254,22 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 def progress_callback(current, total):
                     progress_bar.progress(current / total)
 
-                scrape_sitemap(url, st.session_state.index_name, progress_callback)
+                sidebar_config.scrape_sitemap(
+                    sidebar_config.url, st.session_state.index_name, progress_callback
+                )
                 st.sidebar.success("Sitemap scraped and results embedded successfully!")
             except Exception as e:
                 st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
                 st.sidebar.error("Please check the error message and try again.")
-        elif selected_function == "YouTube Chat":
+        elif sidebar_config.selected_function == "YouTube Chat":
             # Call the scrape_sitemap function without splitting the result
-            fn_result = youtube_chat(url)
+            fn_result = sidebar_config.youtube_chat(url)
             split_result = split_text(fn_result)
             # Store the split_result in session state
             st.session_state.split_result = split_result
-        elif selected_function == "Crawl":
-            fn_result = functions[selected_function](
-                url, params=st.session_state.crawl_params
+        elif sidebar_config.selected_function == "Crawl":
+            fn_result = sidebar_config.functions[sidebar_config.selected_function](
+                sidebar_config.url, params=st.session_state.crawl_params
             )
             if fn_result is not None:
                 split_result = split_md(fn_result)
@@ -311,18 +280,25 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 )
         else:
             # Call the selected function with the provided URL and split the result
-            fn_result = functions[selected_function](url)
+            fn_result = sidebar_config.functions[sidebar_config.selected_function](url)
             split_result = split_md(fn_result)
             if split_result:
                 st.session_state.split_result = split_result
-                st.success(f"{selected_function} completed successfully!")
+                st.success(
+                    f"{sidebar_config.selected_function} completed successfully!"
+                )
             else:
-                st.warning(f"{selected_function} completed, but no results were found.")
+                st.warning(
+                    f"{sidebar_config.selected_function} completed, but no results were found."
+                )
     else:
         st.warning("Please enter a valid URL.")
 
 # Check if split_result exists in the session state and the selected function is not "Sitemap Scraper"
-if "split_result" in st.session_state and selected_function != "Sitemap Scraper":
+if (
+    "split_result" in st.session_state
+    and sidebar_config.selected_function != "Sitemap Scraper"
+):
     split_result = st.session_state.split_result
 
     # Show the input field for index name only if split_result is not empty
