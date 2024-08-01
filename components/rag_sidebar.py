@@ -8,20 +8,15 @@ from tools.firecrawl_scrape_loader import scrape
 from tools.firecrawl_crawl_loader import crawl
 from pinecone import Pinecone
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
 
 SITEMAP_SCRAPER = "Sitemap Scraper"
 YOUTUBE_CHAT = "Youtube Chat"
 SCRAPE = "Scrape"
 CRAWL = "Crawl"
-
-
-@st.cache_data(ttl=3600)  # Cache for 1 hour
-def get_pinecone_indexes():
-    return [index.name for index in pc.list_indexes()]
 
 
 @dataclass
@@ -63,13 +58,10 @@ def setup_sidebar() -> SidebarConfig:
         "Select specific model for retrieval",
         LLMManager.get_models_for_provider(search_query_provider),
     )
-    # Use the cached function to get Pinecone indexes
-    PINECONE_INDEXES = get_pinecone_indexes()
 
-    pinecone_index_name = st.sidebar.selectbox(
-        "Choose where the AI should look for information:",
-        options=PINECONE_INDEXES,
-        index=1 if PINECONE_INDEXES else None,
+    pinecone_index_name = st.sidebar.text_input(
+        "Choose where the AI should look for information: (IndexName)",
+        value="langchain",  # TODO: make this value empty or pull directly from pinecone API
     )
     st.sidebar.title("Rag Chat Tools")
 
