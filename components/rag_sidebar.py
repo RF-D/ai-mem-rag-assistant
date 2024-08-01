@@ -1,15 +1,23 @@
 import streamlit as st
+import os
 from dataclasses import dataclass
 from utils.llm_manager import LLMManager
 from scrape_sitemap import scrape_sitemap
 from tools.youtube_chat import youtube_chat
 from tools.firecrawl_scrape_loader import scrape
-from tools.firecrawl_crawl_loader import crawl, get_default_crawl_params
+from tools.firecrawl_crawl_loader import crawl
+from pinecone import Pinecone
+from dotenv import load_dotenv
+
+load_dotenv()
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
 SITEMAP_SCRAPER = "Sitemap Scraper"
 YOUTUBE_CHAT = "Youtube Chat"
 SCRAPE = "Scrape"
 CRAWL = "Crawl"
+# Get the list of index names
+PINECONE_INDEXES = [index.name for index in pc.list_indexes()]
 
 
 @dataclass
@@ -50,9 +58,10 @@ def setup_sidebar() -> SidebarConfig:
         "Select specific model for retrieval",
         LLMManager.get_models_for_provider(search_query_provider),
     )
-    pinecone_index_name = st.sidebar.text_input(
-        "Choose where the AI should look for information: (IndexName)",
-        value="langchain",  # TODO: make this value empty or pull directly from pinecone API
+    pinecone_index_name = st.sidebar.selectbox(
+        "Choose where the AI should look for information:",
+        options=PINECONE_INDEXES,
+        index=0 if PINECONE_INDEXES else None,
     )
     st.sidebar.title("Rag Chat Tools")
 
