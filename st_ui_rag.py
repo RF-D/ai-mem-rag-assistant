@@ -49,7 +49,7 @@ MAX_HISTORY_TOKENS = LLMManager.MAX_HISTORY_TOKENS
 sidebar_config = initialize_streamlit_app()
 
 
-@lru_cache(maxsize=1)
+@st.cache_resource(ttl=3600)
 def load_vectorstore(index_name):
     embeddings = vo_embed()
     return PineconeVectorStore.from_existing_index(
