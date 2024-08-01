@@ -38,6 +38,7 @@ from tools.youtube_chat import youtube_chat
 
 # Components
 from components.rag_sidebar import setup_sidebar
+from components.streamlit_app_initializer import initialize_streamlit_app
 
 load_dotenv()
 
@@ -49,16 +50,12 @@ YOUTUBE_CHAT = "Youtube Chat"
 SCRAPE = "Scrape"
 CRAWL = "Crawl"
 
-# Streamlit app
-if "selected_function" not in st.session_state:
-    st.session_state.selected_function = "Scrape"
+
+# Initialize the Streamlit app and get the sidebar configuration
+sidebar_config = initialize_streamlit_app()
 
 
-# Set page configuration
-st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
-
-
-# Define a callback function
+# Update callback function
 def update_selected_function():
     st.session_state.selected_function = st.session_state.function_selector
 
@@ -103,8 +100,6 @@ If the context provided is sufficient to answer the question, use it to formulat
         ]
     )
 
-
-sidebar_config = setup_sidebar()
 
 # Load LLMs
 chain_llm = LLMManager.load_llm(
@@ -237,17 +232,10 @@ url = st.sidebar.text_input("Enter a URL")
 
 # Show the input field for index name only if the selected function is "Sitemap Scraper"
 if selected_function == "Sitemap Scraper":
-    # Check if index_name exists in the session state
-    if "index_name" not in st.session_state:
-        st.session_state.index_name = ""
     st.session_state.index_name = st.sidebar.text_input(
         "Index Name", value=st.session_state.index_name
     )
 
-
-# Initialize session state variables if they don't exist
-if "crawl_params" not in st.session_state:
-    st.session_state.crawl_params = get_default_crawl_params()
 
 # Show crawl parameters only when "Crawl" is selected
 if selected_function == "Crawl":
@@ -339,10 +327,6 @@ if "split_result" in st.session_state and selected_function != "Sitemap Scraper"
 
     # Show the input field for index name only if split_result is not empty
     if split_result:
-        # Check if index_name exists in the session state
-        if "index_name" not in st.session_state:
-            st.session_state.index_name = ""
-
         # Display the index name input field and update the session state
         st.session_state.index_name = st.sidebar.text_input(
             "Index Name", value=st.session_state.index_name
@@ -386,10 +370,6 @@ with st.sidebar.expander("Upload and Embed Documents"):
         text_input = st.text_area("Paste your text here")
         if text_input:
             loaded_docs = load_documents(text=text_input)
-
-    # Add index name input field
-    if "upload_index_name" not in st.session_state:
-        st.session_state.upload_index_name = ""
 
     st.session_state.upload_index_name = st.text_input(
         "Index Name for File/Text Uploader", value=st.session_state.upload_index_name
@@ -479,19 +459,6 @@ chat_history = []
 update_token_count = LLMManager.update_token_count
 
 st.title("Persistent Memory Conversational Agent")
-
-
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Initialize token counters in session state
-if "total_prompt_tokens" not in st.session_state:
-    st.session_state.total_prompt_tokens = 0
-if "total_completion_tokens" not in st.session_state:
-    st.session_state.total_completion_tokens = 0
-if "total_tokens" not in st.session_state:
-    st.session_state.total_tokens = 0
 
 
 for message in st.session_state.messages:
