@@ -377,6 +377,7 @@ if st.sidebar.button("Reset Chat History"):
     st.session_state.messages = []
 
 
+@st.cache_resource(ttl=3600)
 def trim_chat_history(
     messages: List[Dict[str, str]], max_tokens: int = 8000
 ) -> Tuple[List[Dict[str, str]], int]:
