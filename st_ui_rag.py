@@ -36,6 +36,9 @@ from tools.firecrawl_crawl_loader import crawl, get_default_crawl_params
 from scrape_sitemap import scrape_sitemap
 from tools.youtube_chat import youtube_chat
 
+# Components
+from components.rag_sidebar import setup_sidebar
+
 load_dotenv()
 
 
@@ -59,8 +62,6 @@ st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
 def update_selected_function():
     st.session_state.selected_function = st.session_state.function_selector
 
-
-def setup_sidebar():
     st.sidebar.title("AI MEM Configuration")
 
     # LLM selection for Response Generation
@@ -84,19 +85,19 @@ def setup_sidebar():
         "Select specific model for retrieval",
         LLMManager.get_models_for_provider(search_query_provider),
     )
+    pinecone_index_name = st.sidebar.text_input(
+        "Choose where the AI should look for information: (IndexName)",
+        value="langchain",
+    )
+    return (
+        chain_provider,
+        chain_model,
+        search_query_provider,
+        search_query_model,
+        pinecone_index_name,
+    )
 
-    return chain_provider, chain_model, search_query_provider, search_query_model
 
-
-# In your main app logic
-chain_provider, chain_model, search_query_provider, search_query_model = setup_sidebar()
-
-# Load LLMs
-chain_llm = LLMManager.load_llm(chain_provider, chain_model)
-search_query_llm = LLMManager.load_llm(search_query_provider, search_query_model)
-
-
-# Setup VectorDB
 @lru_cache(maxsize=1)
 def load_vectorstore(index_name):
     embeddings = vo_embed()
@@ -105,22 +106,11 @@ def load_vectorstore(index_name):
     )
 
 
-pinecone_index_name = st.sidebar.text_input(
-    "Choose where the AI should look for information: (IndexName)", value="langchain"
-)
-vectorstore = load_vectorstore(pinecone_index_name)
-
-
-# Setup retriever
 @lru_cache(maxsize=1)
 def load_retriever():
     return retriever_tool_meta(vectorstore)
 
 
-retriever = load_retriever()
-
-
-# RAG setup
 @lru_cache(maxsize=1)
 def load_condense_question_prompt():
     _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
@@ -129,9 +119,6 @@ def load_condense_question_prompt():
     Follow Up Input: {question}
     Standalone question:"""  # noqa: E501
     return PromptTemplate.from_template(_template)
-
-
-CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
 
 
 @lru_cache(maxsize=1)
@@ -150,6 +137,29 @@ If the context provided is sufficient to answer the question, use it to formulat
             ("user", "{question}"),
         ]
     )
+
+
+sidebar_config = setup_sidebar()
+
+# Load LLMs
+chain_llm = LLMManager.load_llm(
+    sidebar_config.chain_provider, sidebar_config.chain_model
+)
+search_query_llm = LLMManager.load_llm(
+    sidebar_config.search_query_provider, sidebar_config.search_query_model
+)
+
+
+# Setup VectorDB
+vectorstore = load_vectorstore(sidebar_config.pinecone_index_name)
+
+
+# Setup retriever
+retriever = load_retriever()
+
+
+# RAG setup
+CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
 
 
 ANSWER_PROMPT = load_answer_prompt()

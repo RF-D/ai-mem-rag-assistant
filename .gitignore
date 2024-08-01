@@ -3,5 +3,6 @@ utils/__pycache__
 utils/sitemaps
 utils/added_memory
 tools/__pycache__
+components/__pycache__
 my-app/
 __pycache__
