@@ -1,6 +1,6 @@
 from functools import lru_cache
 from typing import Dict
-from functools import lru_cache
+from sys import stdout
 
 # Langchain imports
 from langchain_anthropic import ChatAnthropic
@@ -37,7 +37,13 @@ class LLMManager:
             "mixtral-8x7b-32768",
             "llama3-groq-70b-8192-tool-use-preview",
         ],
-        "Mistral": ["mistral-large-latest", "codestral-latest", "open-codestral-mamba"],
+        "Mistral": [
+            "mistral-large-latest",
+            "open-mixtral-8x22b",
+            "codestral-latest",
+            "open-codestral-mamba",
+            "open-mistral-nemo",
+        ],
         "Ollama": [],
     }
     MAX_HISTORY_TOKENS = 40000
@@ -111,7 +117,7 @@ class LLMManager:
             return []
 
     @staticmethod
-    @lru_cache(maxsize=None)
+    @st.cache_resource
     def load_llm(provider: str, model: str):
         if provider == "Ollama":
             LLMManager.initialize_ollama_models()  # Refresh Ollama models before loading
@@ -122,9 +128,14 @@ class LLMManager:
             ),
             "OpenAI": lambda: ChatOpenAI(model=model, temperature=0.7),
             "Groq": lambda: ChatGroq(
-                model_name=model, temperature=0.7, max_tokens=2048
+                model_name=model, temperature=0.9, max_tokens=2048
             ),
-            "Ollama": lambda: ChatOllama(model=model, temperature=0.8, streaming=True),
+            "Ollama": lambda: ChatOllama(
+                model=model,
+                temperature=0.8,
+                presence_penalty=0.4,
+                streaming=True,
+            ),
             "Mistral": lambda: ChatMistralAI(
                 model=model, temperature=1, streaming=True
             ),

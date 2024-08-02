@@ -11,6 +11,7 @@ pinecone-client
 unstructured
 pytube
 youtube-transcript-api
+langchain-mistralai
 langchainhub
 langchain-anthropic
 langchain-openai
