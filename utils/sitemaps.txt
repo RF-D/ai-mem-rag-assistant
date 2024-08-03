@@ -7,3 +7,5 @@ https://docs.anthropic.com/sitemap.xml
 https://www.programiz.com/sitemap.xml
 
 https://docs.firecrawl.dev/sitemap.xml
+
+https://docs.streamlit.io/sitemap.xml

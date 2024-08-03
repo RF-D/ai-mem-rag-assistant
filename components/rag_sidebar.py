@@ -69,7 +69,7 @@ def setup_sidebar() -> SidebarConfig:
     pinecone_index_name = st.sidebar.selectbox(
         "Choose where the AI should look for information:",
         options=PINECONE_INDEXES,
-        index=1 if PINECONE_INDEXES else None,
+        index=1 if PINECONE_INDEXES else None else 0,
     )
     st.sidebar.title("Rag Chat Tools")
 
