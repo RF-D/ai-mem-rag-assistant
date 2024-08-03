@@ -133,7 +133,8 @@ class LLMManager:
             "Ollama": lambda: ChatOllama(
                 model=model,
                 temperature=0.8,
-                presence_penalty=0.4,
+                presence_penalty=0.2,
+                n_sentence_context=2,
                 streaming=True,
             ),
             "Mistral": lambda: ChatMistralAI(
