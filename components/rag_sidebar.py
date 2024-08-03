@@ -7,6 +7,12 @@ from tools.youtube_chat import youtube_chat
 from tools.firecrawl_scrape_loader import scrape
 from tools.firecrawl_crawl_loader import crawl
 from pinecone import Pinecone
+from tools.doc_loader import load_documents
+import tempfile
+from langchain_pinecone import PineconeVectorStore
+from tools.voyage_embeddings import vo_embed
+
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -100,3 +106,62 @@ def setup_sidebar() -> SidebarConfig:
         selected_function=selected_function,
         functions=functions,
     )
+
+
+def index_name_for_sitemap_scraper(selected_function):
+    if selected_function == "Sitemap Scraper":
+        st.session_state.index_name = st.sidebar.text_input(
+            "Index Name", value=st.session_state.index_name
+        )
+
+
+def file_uploader():
+    # File Uploader
+    with st.sidebar.expander("Upload and Embed Documents"):
+        upload_method = st.radio("Upload Method", ["File", "Text"])
+
+        loaded_docs = None
+        if upload_method == "File":
+            uploaded_file = st.file_uploader(
+                "Choose a file", type=["txt", "pdf", "docx"]
+            )
+            if uploaded_file:
+                # Save the uploaded file to a temporary file
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}'
+                ) as temp_file:
+                    temp_file.write(uploaded_file.getvalue())
+                    temp_file_path = temp_file.name
+
+                # Load documents from the temporary file
+                loaded_docs = load_documents(file_path=temp_file_path)
+
+                # Clean up the temporary file
+                os.remove(temp_file_path)
+        else:
+            text_input = st.text_area("Paste your text here")
+            if text_input:
+                loaded_docs = load_documents(text=text_input)
+
+        st.session_state.upload_index_name = st.text_input(
+            "Index Name for File/Text Uploader",
+            value=st.session_state.upload_index_name,
+        )
+
+        if st.button("Embed Documents", key="embed_documents"):
+            if loaded_docs and st.session_state.upload_index_name:
+                try:
+                    embeddings = vo_embed()
+                    PineconeVectorStore.from_documents(
+                        documents=loaded_docs,
+                        embedding=embeddings,
+                        index_name=st.session_state.upload_index_name,
+                    )
+                    st.success("Embedding completed successfully!")
+                except Exception as e:
+                    st.error(f"Embedding failed: {str(e)}")
+                    st.error("Please check the error message and try again.")
+            elif not loaded_docs:
+                st.warning("No documents to embed.")
+            else:
+                st.warning("Please enter an index name for embedding.")

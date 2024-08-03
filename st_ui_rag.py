@@ -36,7 +36,11 @@ from scrape_sitemap import scrape_sitemap
 
 
 # Components
-from components.rag_sidebar import setup_sidebar
+from components.rag_sidebar import (
+    setup_sidebar,
+    file_uploader,
+    index_name_for_sitemap_scraper,
+)
 from components.streamlit_app_initializer import initialize_streamlit_app
 
 load_dotenv()
@@ -199,11 +203,7 @@ sidebar = st.sidebar
 split_result = None
 
 # Show the input field for index name only if the selected function is "Sitemap Scraper"
-if sidebar_config.selected_function == "Sitemap Scraper":
-    st.session_state.index_name = st.sidebar.text_input(
-        "Index Name", value=st.session_state.index_name
-    )
-
+index_name_for_sitemap_scraper(sidebar_config.selected_function)
 
 # Show crawl parameters only when "Crawl" is selected
 if sidebar_config.selected_function == "Crawl":
@@ -325,52 +325,10 @@ if (
                 st.sidebar.error("Please check the error message and try again.")
     else:
         st.warning("No results to embed.")
-# File Uploader
-with st.sidebar.expander("Upload and Embed Documents"):
-    upload_method = st.radio("Upload Method", ["File", "Text"])
 
-    loaded_docs = None
-    if upload_method == "File":
-        uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
-        if uploaded_file:
-            # Save the uploaded file to a temporary file
-            with tempfile.NamedTemporaryFile(
-                delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}'
-            ) as temp_file:
-                temp_file.write(uploaded_file.getvalue())
-                temp_file_path = temp_file.name
-
-            # Load documents from the temporary file
-            loaded_docs = load_documents(file_path=temp_file_path)
-
-            # Clean up the temporary file
-            os.remove(temp_file_path)
-    else:
-        text_input = st.text_area("Paste your text here")
-        if text_input:
-            loaded_docs = load_documents(text=text_input)
-
-    st.session_state.upload_index_name = st.text_input(
-        "Index Name for File/Text Uploader", value=st.session_state.upload_index_name
-    )
-
-    if st.button("Embed Documents", key="embed_documents"):
-        if loaded_docs and st.session_state.upload_index_name:
-            try:
-                embeddings = vo_embed()
-                PineconeVectorStore.from_documents(
-                    documents=loaded_docs,
-                    embedding=embeddings,
-                    index_name=st.session_state.upload_index_name,
-                )
-                st.success("Embedding completed successfully!")
-            except Exception as e:
-                st.error(f"Embedding failed: {str(e)}")
-                st.error("Please check the error message and try again.")
-        elif not loaded_docs:
-            st.warning("No documents to embed.")
-        else:
-            st.warning("Please enter an index name for embedding.")
+# Upload File or Text documents
+st.cache_data()
+file_uploader()
 
 # Reset chat history button
 if st.sidebar.button("Reset Chat History"):
