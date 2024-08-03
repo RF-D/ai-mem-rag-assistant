@@ -2,7 +2,7 @@
 #pip install -r requirements.txt
 tenacity
 ratelimit
-docstring-parser>=0.16,<0.17
+docstring-parser>=0.15,<0.16
 streamlit-ace
 psutil
 tiktoken
@@ -11,6 +11,7 @@ pinecone-client
 unstructured
 pytube
 youtube-transcript-api
+langchain-mistralai
 langchainhub
 langchain-anthropic
 langchain-openai

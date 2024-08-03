@@ -30,74 +30,27 @@ from tools.voyage_embeddings import vo_embed
 # Custom tools and loaders
 from tools.doc_loader import load_documents
 from tools.retriever_tools import retriever_tool_meta
-from tools.firecrawl_scrape_loader import scrape
+
 from tools.text_splitter import split_md, split_text
-from tools.firecrawl_crawl_loader import crawl, get_default_crawl_params
 from scrape_sitemap import scrape_sitemap
-from tools.youtube_chat import youtube_chat
+
+
+# Components
+from components.rag_sidebar import setup_sidebar
+from components.streamlit_app_initializer import initialize_streamlit_app
 
 load_dotenv()
 
 
 LLMManager.initialize_ollama_models()
 MAX_HISTORY_TOKENS = LLMManager.MAX_HISTORY_TOKENS
-SITEMAP_SCRAPER = "Sitemap Scraper"
-YOUTUBE_CHAT = "Youtube Chat"
-SCRAPE = "Scrape"
-CRAWL = "Crawl"
-
-# Streamlit app
-if "selected_function" not in st.session_state:
-    st.session_state.selected_function = "Scrape"
 
 
-# Set page configuration
-st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
+# Initialize the Streamlit app and get the sidebar configuration
+sidebar_config = initialize_streamlit_app()
 
 
-# Define a callback function
-def update_selected_function():
-    st.session_state.selected_function = st.session_state.function_selector
-
-
-def setup_sidebar():
-    st.sidebar.title("AI MEM Configuration")
-
-    # LLM selection for Response Generation
-    chain_provider = st.sidebar.selectbox(
-        "Choose AI assistant response generation",
-        list(LLMManager.get_provider_models().keys()),
-    )
-    chain_model = st.sidebar.selectbox(
-        "Select specific model for responses",
-        LLMManager.get_models_for_provider(chain_provider),
-    )
-
-    st.sidebar.write("---")
-
-    # LLM selection for Querying Retriever
-    search_query_provider = st.sidebar.selectbox(
-        "Choose AI assistant for relevant information retrieval",
-        list(LLMManager.get_provider_models().keys()),
-    )
-    search_query_model = st.sidebar.selectbox(
-        "Select specific model for retrieval",
-        LLMManager.get_models_for_provider(search_query_provider),
-    )
-
-    return chain_provider, chain_model, search_query_provider, search_query_model
-
-
-# In your main app logic
-chain_provider, chain_model, search_query_provider, search_query_model = setup_sidebar()
-
-# Load LLMs
-chain_llm = LLMManager.load_llm(chain_provider, chain_model)
-search_query_llm = LLMManager.load_llm(search_query_provider, search_query_model)
-
-
-# Setup VectorDB
-@lru_cache(maxsize=1)
+@st.cache_resource(ttl=3600)
 def load_vectorstore(index_name):
     embeddings = vo_embed()
     return PineconeVectorStore.from_existing_index(
@@ -105,22 +58,11 @@ def load_vectorstore(index_name):
     )
 
 
-pinecone_index_name = st.sidebar.text_input(
-    "Choose where the AI should look for information: (IndexName)", value="langchain"
-)
-vectorstore = load_vectorstore(pinecone_index_name)
-
-
-# Setup retriever
 @lru_cache(maxsize=1)
 def load_retriever():
     return retriever_tool_meta(vectorstore)
 
 
-retriever = load_retriever()
-
-
-# RAG setup
 @lru_cache(maxsize=1)
 def load_condense_question_prompt():
     _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
@@ -129,9 +71,6 @@ def load_condense_question_prompt():
     Follow Up Input: {question}
     Standalone question:"""  # noqa: E501
     return PromptTemplate.from_template(_template)
-
-
-CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
 
 
 @lru_cache(maxsize=1)
@@ -150,6 +89,27 @@ If the context provided is sufficient to answer the question, use it to formulat
             ("user", "{question}"),
         ]
     )
+
+
+# Load LLMs
+chain_llm = LLMManager.load_llm(
+    sidebar_config.chain_provider, sidebar_config.chain_model
+)
+search_query_llm = LLMManager.load_llm(
+    sidebar_config.search_query_provider, sidebar_config.search_query_model
+)
+
+
+# Setup VectorDB
+vectorstore = load_vectorstore(sidebar_config.pinecone_index_name)
+
+
+# Setup retriever
+retriever = load_retriever()
+
+
+# RAG setup
+CONDENSE_QUESTION_PROMPT = load_condense_question_prompt()
 
 
 ANSWER_PROMPT = load_answer_prompt()
@@ -235,47 +195,18 @@ embeddings = load_embedding_model()
 # Create a sidebar
 sidebar = st.sidebar
 
-sidebar.title("Rag Chat Tools")
-
-# Create a dropdown menu to select the function to call
-functions = {
-    SCRAPE: scrape,
-    CRAWL: crawl,
-    SITEMAP_SCRAPER: scrape_sitemap,
-    YOUTUBE_CHAT: youtube_chat,
-}
-
 
 split_result = None
 
-
-# Function selection
-selected_function = st.sidebar.selectbox(
-    "Select a function",
-    list(functions.keys()),
-    key="function_selector",
-    index=list(functions.keys()).index(st.session_state.selected_function),
-    on_change=update_selected_function,
-)
-
-url = st.sidebar.text_input("Enter a URL")
-
 # Show the input field for index name only if the selected function is "Sitemap Scraper"
-if selected_function == "Sitemap Scraper":
-    # Check if index_name exists in the session state
-    if "index_name" not in st.session_state:
-        st.session_state.index_name = ""
+if sidebar_config.selected_function == "Sitemap Scraper":
     st.session_state.index_name = st.sidebar.text_input(
         "Index Name", value=st.session_state.index_name
     )
 
 
-# Initialize session state variables if they don't exist
-if "crawl_params" not in st.session_state:
-    st.session_state.crawl_params = get_default_crawl_params()
-
 # Show crawl parameters only when "Crawl" is selected
-if selected_function == "Crawl":
+if sidebar_config.selected_function == "Crawl":
     with st.sidebar.form("crawl_params_form"):
         st.header("Crawl Parameters")
 
@@ -315,8 +246,8 @@ if selected_function == "Crawl":
             ] = only_main_content
 
 if st.sidebar.button("URL Submit", key="url_submit"):
-    if url:
-        if selected_function == "Sitemap Scraper":
+    if sidebar_config.url:
+        if sidebar_config.selected_function == "Sitemap Scraper":
             try:
                 # Display a progress bar in the sidebar while the function is running
                 progress_bar = st.sidebar.progress(0)
@@ -324,20 +255,22 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 def progress_callback(current, total):
                     progress_bar.progress(current / total)
 
-                scrape_sitemap(url, st.session_state.index_name, progress_callback)
+                scrape_sitemap(
+                    sidebar_config.url, st.session_state.index_name, progress_callback
+                )
                 st.sidebar.success("Sitemap scraped and results embedded successfully!")
             except Exception as e:
                 st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
                 st.sidebar.error("Please check the error message and try again.")
-        elif selected_function == "YouTube Chat":
+        elif sidebar_config.selected_function == "YouTube Chat":
             # Call the scrape_sitemap function without splitting the result
-            fn_result = youtube_chat(url)
+            fn_result = sidebar_config.youtube_chat(sidebar_config.url)
             split_result = split_text(fn_result)
             # Store the split_result in session state
             st.session_state.split_result = split_result
-        elif selected_function == "Crawl":
-            fn_result = functions[selected_function](
-                url, params=st.session_state.crawl_params
+        elif sidebar_config.selected_function == "Crawl":
+            fn_result = sidebar_config.functions[sidebar_config.selected_function](
+                sidebar_config.url, params=st.session_state.crawl_params
             )
             if fn_result is not None:
                 split_result = split_md(fn_result)
@@ -348,26 +281,31 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 )
         else:
             # Call the selected function with the provided URL and split the result
-            fn_result = functions[selected_function](url)
+            fn_result = sidebar_config.functions[sidebar_config.selected_function](
+                sidebar_config.url
+            )
             split_result = split_md(fn_result)
             if split_result:
                 st.session_state.split_result = split_result
-                st.success(f"{selected_function} completed successfully!")
+                st.success(
+                    f"{sidebar_config.selected_function} completed successfully!"
+                )
             else:
-                st.warning(f"{selected_function} completed, but no results were found.")
+                st.warning(
+                    f"{sidebar_config.selected_function} completed, but no results were found."
+                )
     else:
         st.warning("Please enter a valid URL.")
 
 # Check if split_result exists in the session state and the selected function is not "Sitemap Scraper"
-if "split_result" in st.session_state and selected_function != "Sitemap Scraper":
+if (
+    "split_result" in st.session_state
+    and sidebar_config.selected_function != "Sitemap Scraper"
+):
     split_result = st.session_state.split_result
 
     # Show the input field for index name only if split_result is not empty
     if split_result:
-        # Check if index_name exists in the session state
-        if "index_name" not in st.session_state:
-            st.session_state.index_name = ""
-
         # Display the index name input field and update the session state
         st.session_state.index_name = st.sidebar.text_input(
             "Index Name", value=st.session_state.index_name
@@ -412,10 +350,6 @@ with st.sidebar.expander("Upload and Embed Documents"):
         if text_input:
             loaded_docs = load_documents(text=text_input)
 
-    # Add index name input field
-    if "upload_index_name" not in st.session_state:
-        st.session_state.upload_index_name = ""
-
     st.session_state.upload_index_name = st.text_input(
         "Index Name for File/Text Uploader", value=st.session_state.upload_index_name
     )
@@ -443,6 +377,7 @@ if st.sidebar.button("Reset Chat History"):
     st.session_state.messages = []
 
 
+@st.cache_resource(ttl=3600)
 def trim_chat_history(
     messages: List[Dict[str, str]], max_tokens: int = 8000
 ) -> Tuple[List[Dict[str, str]], int]:
@@ -452,7 +387,9 @@ def trim_chat_history(
 
     for message in reversed(messages):
         message_tokens = LLMManager.count_tokens(
-            message["content"], chain_provider, chain_model
+            message["content"],
+            sidebar_config.chain_provider,
+            sidebar_config.chain_model,
         )
 
         if total_prompt_tokens + message_tokens > max_tokens and user_message_found:
@@ -473,7 +410,9 @@ def trim_chat_history(
                 else:
                     trimmed_messages.append(message)
                 total_prompt_tokens += LLMManager.count_tokens(
-                    message["content"], chain_provider, chain_model
+                    message["content"],
+                    sidebar_config.chain_provider,
+                    sidebar_config.chain_model,
                 )
                 break
 
@@ -482,7 +421,9 @@ def trim_chat_history(
         dummy_message = {"role": "user", "content": "Start of conversation"}
         trimmed_messages.insert(0, dummy_message)
         total_prompt_tokens += LLMManager.count_tokens(
-            dummy_message["content"], chain_provider, chain_model
+            dummy_message["content"],
+            sidebar_config.chain_provider,
+            sidebar_config.chain_model,
         )
 
     return trimmed_messages, total_prompt_tokens
@@ -498,19 +439,6 @@ chat_history = []
 update_token_count = LLMManager.update_token_count
 
 st.title("Persistent Memory Conversational Agent")
-
-
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Initialize token counters in session state
-if "total_prompt_tokens" not in st.session_state:
-    st.session_state.total_prompt_tokens = 0
-if "total_completion_tokens" not in st.session_state:
-    st.session_state.total_completion_tokens = 0
-if "total_tokens" not in st.session_state:
-    st.session_state.total_tokens = 0
 
 
 for message in st.session_state.messages:
@@ -560,12 +488,14 @@ if user_input:
     # Calculate prompt tokens
     prompt_tokens = LLMManager.count_tokens(
         str({"question": user_input, "chat_history": trimmed_history}),
-        chain_provider,
-        chain_model,
+        sidebar_config.chain_provider,
+        sidebar_config.chain_model,
     )
 
     # Calculate completion tokens
-    completion_tokens = LLMManager.count_tokens(result, chain_provider, chain_model)
+    completion_tokens = LLMManager.count_tokens(
+        result, sidebar_config.chain_provider, sidebar_config.chain_model
+    )
 
     # Update token counts
     LLMManager.update_token_count(st.session_state, prompt_tokens, completion_tokens)
