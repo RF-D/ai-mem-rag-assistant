@@ -40,6 +40,7 @@ from components.rag_sidebar import (
     setup_sidebar,
     file_uploader,
     index_name_for_sitemap_scraper,
+    crawl_parameters,
 )
 from components.streamlit_app_initializer import initialize_streamlit_app
 
@@ -202,49 +203,16 @@ sidebar = st.sidebar
 
 split_result = None
 
-# Show the input field for index name only if the selected function is "Sitemap Scraper"
-index_name_for_sitemap_scraper(sidebar_config.selected_function)
 
 # Show crawl parameters only when "Crawl" is selected
 if sidebar_config.selected_function == "Crawl":
-    with st.sidebar.form("crawl_params_form"):
-        st.header("Crawl Parameters")
+    crawl_parameters()
 
-        max_depth = st.number_input(
-            "Max Depth",
-            min_value=1,
-            max_value=10,
-            value=st.session_state.crawl_params["crawlerOptions"]["maxDepth"],
-        )
+# Show the input field for index name only if the selected function is "Sitemap Scraper"
+index_name_for_sitemap_scraper(sidebar_config.selected_function)
 
-        limit = st.number_input(
-            "Limit",
-            min_value=1,
-            max_value=1000,
-            value=st.session_state.crawl_params["crawlerOptions"]["limit"],
-        )
 
-        crawl_delay = st.number_input(
-            "Crawl Delay",
-            min_value=0.1,
-            max_value=5.0,
-            value=st.session_state.crawl_params["crawlerOptions"]["crawldelay"],
-            step=0.1,
-        )
-
-        only_main_content = st.checkbox(
-            "Only Main Content",
-            value=st.session_state.crawl_params["pageOptions"]["onlyMainContent"],
-        )
-
-        if st.form_submit_button("Apply Crawl Parameters"):
-            st.session_state.crawl_params["crawlerOptions"]["maxDepth"] = max_depth
-            st.session_state.crawl_params["crawlerOptions"]["limit"] = limit
-            st.session_state.crawl_params["crawlerOptions"]["crawldelay"] = crawl_delay
-            st.session_state.crawl_params["pageOptions"][
-                "onlyMainContent"
-            ] = only_main_content
-
+# SUBMIT URL per chosen function
 if st.sidebar.button("URL Submit", key="url_submit"):
     if sidebar_config.url:
         if sidebar_config.selected_function == "Sitemap Scraper":

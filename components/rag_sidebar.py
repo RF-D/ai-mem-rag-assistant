@@ -165,3 +165,43 @@ def file_uploader():
                 st.warning("No documents to embed.")
             else:
                 st.warning("Please enter an index name for embedding.")
+
+
+def crawl_parameters():
+    with st.sidebar.form("crawl_params_form"):
+        st.header("Crawl Parameters")
+
+        max_depth = st.number_input(
+            "Max Depth",
+            min_value=1,
+            max_value=10,
+            value=st.session_state.crawl_params["crawlerOptions"]["maxDepth"],
+        )
+
+        limit = st.number_input(
+            "Limit",
+            min_value=1,
+            max_value=1000,
+            value=st.session_state.crawl_params["crawlerOptions"]["limit"],
+        )
+
+        crawl_delay = st.number_input(
+            "Crawl Delay",
+            min_value=0.1,
+            max_value=5.0,
+            value=st.session_state.crawl_params["crawlerOptions"]["crawldelay"],
+            step=0.1,
+        )
+
+        only_main_content = st.checkbox(
+            "Only Main Content",
+            value=st.session_state.crawl_params["pageOptions"]["onlyMainContent"],
+        )
+
+        if st.form_submit_button("Apply Crawl Parameters"):
+            st.session_state.crawl_params["crawlerOptions"]["maxDepth"] = max_depth
+            st.session_state.crawl_params["crawlerOptions"]["limit"] = limit
+            st.session_state.crawl_params["crawlerOptions"]["crawldelay"] = crawl_delay
+            st.session_state.crawl_params["pageOptions"][
+                "onlyMainContent"
+            ] = only_main_content
