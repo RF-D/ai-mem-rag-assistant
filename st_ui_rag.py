@@ -42,6 +42,7 @@ from components.rag_sidebar import (
     index_name_for_sitemap_scraper,
     crawl_parameters,
     youtube_chat_submit,
+    crawl_submit,
 )
 from components.streamlit_app_initializer import initialize_streamlit_app
 
@@ -236,16 +237,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
             # Store the split_result in session state
             st.session_state.split_result = split_result
         elif sidebar_config.selected_function == "Crawl":
-            fn_result = sidebar_config.functions[sidebar_config.selected_function](
-                sidebar_config.url, params=st.session_state.crawl_params
-            )
-            if fn_result is not None:
-                split_result = split_md(fn_result)
-                st.session_state.split_result = split_result
-            else:
-                st.error(
-                    "An error occurred during crawling. Please check the logs for more information."
-                )
+            crawl_submit(sidebar_config.url)
         else:
             # Call the selected function with the provided URL and split the result
             fn_result = sidebar_config.functions[sidebar_config.selected_function](

@@ -12,6 +12,7 @@ import tempfile
 from langchain_pinecone import PineconeVectorStore
 from tools.voyage_embeddings import vo_embed
 from tools.text_splitter import split_md, split_text
+import traceback
 
 
 from dotenv import load_dotenv
@@ -209,6 +210,37 @@ def crawl_parameters():
 
 
 def youtube_chat_submit(url):
-    fn_result = youtube_chat(url)
-    split_result = split_text(fn_result)
-    return split_result
+    try:
+        fn_result = youtube_chat(url)
+        if fn_result is not None:
+            split_result = split_md(fn_result)
+            st.session_state.split_result = split_result
+            split_result = split_text(fn_result)
+            return split_result
+        else:
+            st.error(
+                "The YouTube chat function returned None. Please check the input and try again."
+            )
+            return None
+    except Exception as e:
+        error_message = f"An error occurred during the YouTube chat: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        st.error(error_message)
+        return None
+
+
+def crawl_submit(url):
+    try:
+        fn_result = crawl(url, params=st.session_state.crawl_params)
+        if fn_result is not None:
+            split_result = split_md(fn_result)
+            st.session_state.split_result = split_result
+        else:
+            st.error(
+                "An error occurred during crawling. Please check the logs for more information."
+            )
+            return None
+        return split_result
+    except Exception as e:
+        error_message = f"An error occurred during crawling: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        st.error(error_message)
+        return None
