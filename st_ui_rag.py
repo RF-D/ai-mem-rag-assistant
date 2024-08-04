@@ -43,6 +43,7 @@ from components.rag_sidebar import (
     crawl_parameters,
     youtube_chat_submit,
     crawl_submit,
+    sitemap_scraper_submit,
 )
 from components.streamlit_app_initializer import initialize_streamlit_app
 
@@ -213,36 +214,22 @@ if sidebar_config.selected_function == "Crawl":
 # Show the input field for index name only if the selected function is "Sitemap Scraper"
 index_name_for_sitemap_scraper(sidebar_config.selected_function)
 
+url = sidebar_config.url
 
 # SUBMIT URL per chosen function
 if st.sidebar.button("URL Submit", key="url_submit"):
     if sidebar_config.url:
         if sidebar_config.selected_function == "Sitemap Scraper":
-            try:
-                # Display a progress bar in the sidebar while the function is running
-                progress_bar = st.sidebar.progress(0)
-
-                def progress_callback(current, total):
-                    progress_bar.progress(current / total)
-
-                scrape_sitemap(
-                    sidebar_config.url, st.session_state.index_name, progress_callback
-                )
-                st.sidebar.success("Sitemap scraped and results embedded successfully!")
-            except Exception as e:
-                st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
-                st.sidebar.error("Please check the error message and try again.")
+            sitemap_scraper_submit(url)
         elif sidebar_config.selected_function == "YouTube Chat":
-            youtube_chat_submit()
+            youtube_chat_submit(url)
             # Store the split_result in session state
             st.session_state.split_result = split_result
         elif sidebar_config.selected_function == "Crawl":
-            crawl_submit(sidebar_config.url)
+            crawl_submit(url)
         else:
             # Call the selected function with the provided URL and split the result
-            fn_result = sidebar_config.functions[sidebar_config.selected_function](
-                sidebar_config.url
-            )
+            fn_result = sidebar_config.functions[sidebar_config.selected_function](url)
             split_result = split_md(fn_result)
             if split_result:
                 st.session_state.split_result = split_result

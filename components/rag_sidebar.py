@@ -244,3 +244,20 @@ def crawl_submit(url):
         error_message = f"An error occurred during crawling: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
         st.error(error_message)
         return None
+
+
+# check with a bigger sitemap to make sure it works
+def progress_callback(current, total):
+    progress_bar = st.sidebar.progress(0)
+    progress_bar.progress(current / total)
+
+
+def sitemap_scraper_submit(url):
+    try:
+        progress_bar = st.sidebar.progress(0)
+        progress_bar.progress_callback
+        scrape_sitemap(url, st.session_state.index_name, progress_callback)
+        st.sidebar.success("Sitemap scraped and results embedded successfully!")
+    except Exception as e:
+        st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
+        st.sidebar.error("Please check the error message and try again.")
