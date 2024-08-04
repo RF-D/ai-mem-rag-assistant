@@ -217,31 +217,35 @@ index_name_for_sitemap_scraper(sidebar_config.selected_function)
 url = sidebar_config.url
 
 # SUBMIT URL per chosen function
+# SUBMIT URL per chosen function
 if st.sidebar.button("URL Submit", key="url_submit"):
-    if sidebar_config.url:
-        if sidebar_config.selected_function == "Sitemap Scraper":
-            sitemap_scraper_submit(url)
-        elif sidebar_config.selected_function == "YouTube Chat":
-            youtube_chat_submit(url)
-            # Store the split_result in session state
-            st.session_state.split_result = split_result
-        elif sidebar_config.selected_function == "Crawl":
-            crawl_submit(url)
-        else:
-            # Call the selected function with the provided URL and split the result
-            fn_result = sidebar_config.functions[sidebar_config.selected_function](url)
-            split_result = split_md(fn_result)
-            if split_result:
-                st.session_state.split_result = split_result
-                st.success(
-                    f"{sidebar_config.selected_function} completed successfully!"
-                )
-            else:
-                st.warning(
-                    f"{sidebar_config.selected_function} completed, but no results were found."
-                )
-    else:
+    if not sidebar_config.url:
         st.warning("Please enter a valid URL.")
+    else:
+        match sidebar_config.selected_function:
+            case "Sitemap Scraper":
+                sitemap_scraper_submit(url)
+            case "YouTube Chat":
+                youtube_chat_submit(url)
+                st.session_state.split_result = split_result
+            case "Crawl":
+                crawl_submit(url)
+            case _:
+                # Handle scrape function and other cases
+                fn_result = sidebar_config.functions[sidebar_config.selected_function](
+                    url
+                )
+                split_result = split_md(fn_result)
+                if split_result:
+                    st.session_state.split_result = split_result
+                    st.success(
+                        f"{sidebar_config.selected_function} completed successfully!"
+                    )
+                else:
+                    st.warning(
+                        f"{sidebar_config.selected_function} completed, but no results were found."
+                    )
+
 
 # Check if split_result exists in the session state and the selected function is not "Sitemap Scraper"
 if (
