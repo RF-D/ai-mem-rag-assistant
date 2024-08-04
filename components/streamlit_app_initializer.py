@@ -34,6 +34,8 @@ def initialize_streamlit_app():
 
     if "upload_index_name" not in st.session_state:
         st.session_state.upload_index_name = ""
+    if "split_result" not in st.session_state:
+        st.session_state.split_result = None
 
     # Set up sidebar
     sidebar_config = setup_sidebar()

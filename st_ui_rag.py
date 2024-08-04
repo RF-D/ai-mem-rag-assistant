@@ -44,6 +44,8 @@ from components.rag_sidebar import (
     youtube_chat_submit,
     crawl_submit,
     sitemap_scraper_submit,
+    add_to_memory_button,
+    display_results,
 )
 from components.streamlit_app_initializer import initialize_streamlit_app
 
@@ -216,7 +218,7 @@ index_name_for_sitemap_scraper(sidebar_config.selected_function)
 
 url = sidebar_config.url
 
-# SUBMIT URL per chosen function
+
 # SUBMIT URL per chosen function
 if st.sidebar.button("URL Submit", key="url_submit"):
     if not sidebar_config.url:
@@ -227,7 +229,6 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 sitemap_scraper_submit(url)
             case "YouTube Chat":
                 youtube_chat_submit(url)
-                st.session_state.split_result = split_result
             case "Crawl":
                 crawl_submit(url)
             case _:
@@ -237,7 +238,6 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 )
                 split_result = split_md(fn_result)
                 if split_result:
-                    st.session_state.split_result = split_result
                     st.success(
                         f"{sidebar_config.selected_function} completed successfully!"
                     )
@@ -247,34 +247,17 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                     )
 
 
-# Check if split_result exists in the session state and the selected function is not "Sitemap Scraper"
+# Check if split_result exists and is not empty, and the function is not "Sitemap Scraper"
 if (
-    "split_result" in st.session_state
+    st.session_state.split_result
     and sidebar_config.selected_function != "Sitemap Scraper"
 ):
     split_result = st.session_state.split_result
+    st.session_state.index_name = st.sidebar.text_input(
+        "Index Name", value=st.session_state.index_name
+    )
+    add_to_memory_button(split_result)
 
-    # Show the input field for index name only if split_result is not empty
-    if split_result:
-        # Display the index name input field and update the session state
-        st.session_state.index_name = st.sidebar.text_input(
-            "Index Name", value=st.session_state.index_name
-        )
-
-        if st.sidebar.button("Add to Memory", key="add_to_memory"):
-            try:
-                embeddings = vo_embed()
-                PineconeVectorStore.from_documents(
-                    documents=split_result,
-                    embedding=embeddings,
-                    index_name=st.session_state.index_name,
-                )
-                st.sidebar.success("Embedding completed successfully!")
-            except Exception as e:
-                st.sidebar.error(f"Embedding failed: {str(e)}")
-                st.sidebar.error("Please check the error message and try again.")
-    else:
-        st.warning("No results to embed.")
 
 # Upload File or Text documents
 st.cache_data()
@@ -362,9 +345,7 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Write something here...", key="input")
 
 # Display the scrape result below the user input
-if split_result:
-    with st.expander("Scrape Result", expanded=False):
-        st.write(split_result)
+display_results(split_result, sidebar_config.selected_function)
 
 # Chat Container
 if user_input:

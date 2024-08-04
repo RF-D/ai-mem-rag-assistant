@@ -261,3 +261,24 @@ def sitemap_scraper_submit(url):
     except Exception as e:
         st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
         st.sidebar.error("Please check the error message and try again.")
+
+
+def add_to_memory_button(split_result):
+    if st.sidebar.button("Add to Memory", key="add_to_memory"):
+        try:
+            embeddings = vo_embed()
+            PineconeVectorStore.from_documents(
+                documents=split_result,
+                embedding=embeddings,
+                index_name=st.session_state.index_name,
+            )
+            st.sidebar.success("Embedding completed successfully!")
+        except Exception as e:
+            st.sidebar.error(f"Embedding failed: {str(e)}")
+            st.sidebar.error("Please check the error message and try again.")
+
+
+def display_results(split_result, selected_function):
+    if split_result and selected_function != "Sitemap Scraper":
+        with st.expander(f"{selected_function} Result", expanded=False):
+            st.write(split_result)
