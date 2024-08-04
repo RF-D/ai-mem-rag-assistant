@@ -41,6 +41,7 @@ from components.rag_sidebar import (
     file_uploader,
     index_name_for_sitemap_scraper,
     crawl_parameters,
+    youtube_chat_submit,
 )
 from components.streamlit_app_initializer import initialize_streamlit_app
 
@@ -231,9 +232,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
                 st.sidebar.error("Please check the error message and try again.")
         elif sidebar_config.selected_function == "YouTube Chat":
-            # Call the scrape_sitemap function without splitting the result
-            fn_result = sidebar_config.youtube_chat(sidebar_config.url)
-            split_result = split_text(fn_result)
+            youtube_chat_submit()
             # Store the split_result in session state
             st.session_state.split_result = split_result
         elif sidebar_config.selected_function == "Crawl":

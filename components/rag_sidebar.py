@@ -11,6 +11,7 @@ from tools.doc_loader import load_documents
 import tempfile
 from langchain_pinecone import PineconeVectorStore
 from tools.voyage_embeddings import vo_embed
+from tools.text_splitter import split_md, split_text
 
 
 from dotenv import load_dotenv
@@ -205,3 +206,9 @@ def crawl_parameters():
             st.session_state.crawl_params["pageOptions"][
                 "onlyMainContent"
             ] = only_main_content
+
+
+def youtube_chat_submit(url):
+    fn_result = youtube_chat(url)
+    split_result = split_text(fn_result)
+    return split_result
