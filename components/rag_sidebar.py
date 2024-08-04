@@ -282,3 +282,14 @@ def display_results(split_result, selected_function):
     if split_result and selected_function != "Sitemap Scraper":
         with st.expander(f"{selected_function} Result", expanded=False):
             st.write(split_result)
+
+
+def handle_split_result(selected_function):
+    if st.session_state.split_result and selected_function != "Sitemap Scraper":
+        split_result = st.session_state.split_result
+        st.session_state.index_name = st.sidebar.text_input(
+            "Index Name", value=st.session_state.index_name
+        )
+        add_to_memory_button(split_result)
+        return split_result
+    return None

@@ -46,6 +46,7 @@ from components.rag_sidebar import (
     sitemap_scraper_submit,
     add_to_memory_button,
     display_results,
+    handle_split_result,
 )
 from components.streamlit_app_initializer import initialize_streamlit_app
 
@@ -213,7 +214,7 @@ split_result = None
 if sidebar_config.selected_function == "Crawl":
     crawl_parameters()
 
-# Show the input field for index name only if the selected function is "Sitemap Scraper"
+# Show the input field for index name when the selected function is "Sitemap Scraper"
 index_name_for_sitemap_scraper(sidebar_config.selected_function)
 
 url = sidebar_config.url
@@ -227,6 +228,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
         match sidebar_config.selected_function:
             case "Sitemap Scraper":
                 sitemap_scraper_submit(url)
+
             case "YouTube Chat":
                 youtube_chat_submit(url)
             case "Crawl":
@@ -245,19 +247,10 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                     st.warning(
                         f"{sidebar_config.selected_function} completed, but no results were found."
                     )
-
+        st.session_state.sidebar_config
 
 # Check if split_result exists and is not empty, and the function is not "Sitemap Scraper"
-if (
-    st.session_state.split_result
-    and sidebar_config.selected_function != "Sitemap Scraper"
-):
-    split_result = st.session_state.split_result
-    st.session_state.index_name = st.sidebar.text_input(
-        "Index Name", value=st.session_state.index_name
-    )
-    add_to_memory_button(split_result)
-
+handle_split_result(sidebar_config.selected_function)
 
 # Upload File or Text documents
 st.cache_data()
