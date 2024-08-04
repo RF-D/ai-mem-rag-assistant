@@ -12,12 +12,22 @@ Use `pip` to install the libraries listed in `requirements.txt`.
 pip install -r requirements.txt
 ```
 
-#### Ollama
+### Ollama
+
+Use Homebrew to setup Ollama and then install your first model.
 
 ```bash
 brew install ollama
+
+ollama run llama3:latest
 ```
 
+This app will start up Ollama as part of its run environment but you can also
+have Ollama running in stand-alone.
+
+```bash
+ollama serve
+```
 
 ### Virtual Environment
 
@@ -50,41 +60,66 @@ Setup the service API keys by duplicating the example dotenv file.
 cp config/.env.example config/.env
 ```
 
-#### Voyage AI
+#### Required Keys
+
+##### Voyage AI
 
 Visit https://www.voyageai.com/ to setup an account and generate an API key.
 
-#### Pinecone
+Add billing information to avoid rate limit error messages.
+
+##### Pinecone
 
 Visit https://www.pinecone.io/ to setup an account. 
 
 Feel free to use Pinecone's curl script to create your first index (called
-"quickstart"). However, for this project, you'll need to create a new index
-called "langchain".
+"quickstart").
 
-Use the same options as the quickstart curl script to create the "langchanin"
-index.
+Use the same options as the quickstart curl script to create new indexes.
+
+##### Langsmith
+
+Visit https://smith.langchain.com/ to create an API key
+
+#### Optional Keys
+
+You can start right away with a model from Ollama but if you'd like to query
+another model, you'll need to setup keys and billing.
 
 #### Anthropic
 
 Visit the Anthropic console to create an API key
 https://console.anthropic.com/dashboard
 
+#### Groq
+
+Visit the Groq console to create an API key
+https://console.groq.com
+
+#### OpenAI
+
+Visit the OpenAI platform to create an API key
+https://platform.openai.com/
+
+#### Firecrawl
+
+Visit https://www.firecrawl.dev/app to create an API key
+
 ## Usage
 
-Start the Streamlit application
+Start the Streamlit application.
 
 ```bash
-# Activate your venv if you're using a virtual environment
+# Activate your venv if you're using a virtual environment.
 # source venv/bin/activate
 
 streamlit run st_ui_rag.py
 
-# Remember to deactive your virtual environment
+# Remember to deactive your virtual environment when done.
 # deactivate
 ```
 
-You can now view your Streamlit app in your browser.
+You can now view the Streamlit app in your browser.
 
 Local URL: http://localhost:8501
 Network URL: http://192.168.68.61:8501
