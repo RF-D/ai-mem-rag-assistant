@@ -50,6 +50,20 @@ class LLMManager:
     ollama_process = None
 
     @staticmethod
+    def check_api_key(provider: str) -> bool:
+        env_var_names = {
+            "Anthropic": "ANTHROPIC_API_KEY",
+            "OpenAI": "OPENAI_API_KEY",
+            "Groq": "GROQ_API_KEY",
+            "Mistral": "MISTRAL_API_KEY",
+        }
+        return bool(os.getenv(env_var_names.get(provider, "")))
+
+    @staticmethod
+    def get_api_key_input(provider: str) -> str:
+        return st.sidebar.text_input(f"Enter your {provider} API key", type="password")
+
+    @staticmethod
     def start_ollama_server():
         # Check if Ollama is already running
         for proc in psutil.process_iter(["name"]):
@@ -117,18 +131,26 @@ class LLMManager:
             return []
 
     @staticmethod
-    @st.cache_resource
     def load_llm(provider: str, model: str):
+        if not provider:
+            return None  # Return None if no provider is selected
+
         if provider == "Ollama":
-            LLMManager.initialize_ollama_models()  # Refresh Ollama models before loading
+            LLMManager.initialize_ollama_models()
+        else:
+            api_key = os.getenv(f"{provider.upper()}_API_KEY")
+            if not api_key:
+                return None
 
         providers = {
-            "Anthropic": lambda: ChatAnthropic(
-                model=model, temperature=0.8, streaming=True
+            "Anthropic": lambda api_key: ChatAnthropic(
+                api_key=api_key, model=model, temperature=0.8, streaming=True
             ),
-            "OpenAI": lambda: ChatOpenAI(model=model, temperature=0.7),
-            "Groq": lambda: ChatGroq(
-                model_name=model, temperature=0.9, max_tokens=2048
+            "OpenAI": lambda api_key: ChatOpenAI(
+                api_key=api_key, model=model, temperature=0.7
+            ),
+            "Groq": lambda api_key: ChatGroq(
+                api_key=api_key, model_name=model, temperature=0.9, max_tokens=2048
             ),
             "Ollama": lambda: ChatOllama(
                 model=model,
@@ -137,15 +159,34 @@ class LLMManager:
                 n_sentence_context=2,
                 streaming=True,
             ),
-            "Mistral": lambda: ChatMistralAI(
-                model=model, temperature=1, streaming=True
+            "Mistral": lambda api_key: ChatMistralAI(
+                api_key=api_key, model=model, temperature=1, streaming=True
             ),
         }
         if provider not in providers:
             raise ValueError(f"Unsupported provider: {provider}")
         if model not in LLMManager.provider_models[provider]:
             raise ValueError(f"Unsupported model {model} for provider {provider}")
-        return providers[provider]()
+
+        return (
+            providers[provider](api_key)
+            if provider != "Ollama"
+            else providers[provider]()
+        )
+
+    @staticmethod
+    def handle_api_key_input(provider: str) -> str:
+        env_var_name = f"{provider.upper()}_API_KEY"
+        api_key = os.getenv(env_var_name)
+        if not api_key:
+            api_key = st.sidebar.text_input(
+                f"Enter your {provider} API key",
+                type="password",
+                key=f"{provider.lower()}_api_key_input",  # Use a unique key for each provider
+            )
+            if api_key:
+                os.environ[env_var_name] = api_key
+        return api_key
 
     @staticmethod
     def count_tokens(text: str, provider: str, model: str) -> int:
@@ -196,3 +237,27 @@ class LLMManager:
         usage_percentage = LLMManager.get_token_usage_percentage(st_session_state)
         st_sidebar.progress(usage_percentage / 100)
         st_sidebar.write(f"Token usage: {usage_percentage:.2f}%")
+
+    @staticmethod
+    def validate_api_key(provider: str, api_key: str) -> bool:
+        try:
+            if provider == "Anthropic":
+                ChatAnthropic(
+                    api_key=api_key, model_name="claude-3-sonnet-20240229"
+                ).invoke("Test")
+            elif provider == "OpenAI":
+                ChatOpenAI(api_key=api_key, model_name="gpt-3.5-turbo").invoke("Test")
+            elif provider == "Groq":
+                ChatGroq(api_key=api_key, model_name="mixtral-8x7b-32768").invoke(
+                    "Test"
+                )
+            elif provider == "Mistral":
+                ChatMistralAI(api_key=api_key, model="mistral-small-latest").invoke(
+                    "Test"
+                )
+            else:
+                return False  # Unsupported provider
+            return True
+        except Exception as e:
+            print(f"API key validation failed for {provider}: {str(e)}")
+            return False
