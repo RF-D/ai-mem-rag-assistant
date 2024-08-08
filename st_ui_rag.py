@@ -110,6 +110,22 @@ search_query_llm = LLMManager.load_llm(
     sidebar_config.search_query_provider, sidebar_config.search_query_model
 )
 
+if chain_llm is None and search_query_llm is None:
+    st.error(
+        "No LLMs are available. Please select at least one provider and enter valid API keys."
+    )
+    st.stop()
+elif chain_llm is None:
+    st.warning(
+        "Chain LLM is not available. Using search query LLM for both operations."
+    )
+    chain_llm = search_query_llm
+elif search_query_llm is None:
+    st.warning(
+        "Search query LLM is not available. Using chain LLM for both operations."
+    )
+    search_query_llm = chain_llm
+
 
 # Setup VectorDB
 vectorstore = load_vectorstore(sidebar_config.pinecone_index_name)

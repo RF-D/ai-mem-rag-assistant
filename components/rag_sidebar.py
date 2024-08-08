@@ -42,6 +42,8 @@ class SidebarConfig:
     url: str
     selected_function: str
     functions: dict
+    api_keys: dict
+    selected_providers: list
 
 
 # Update callback function
@@ -52,9 +54,72 @@ def update_selected_function():
 def setup_sidebar() -> SidebarConfig:
     st.sidebar.title("AI MEM Configuration")
 
+    # Provider selection with an expander
+    with st.sidebar.expander(
+        "Hide/Show Providers",
+        expanded=not st.session_state.get("provider_selection_confirmed", False),
+    ):
+        available_providers = list(LLMManager.get_provider_models().keys())
+        selected_providers = st.multiselect(
+            "Select AI providers to use",
+            options=available_providers,
+            default=st.session_state.get("selected_providers", available_providers),
+            key="provider_multiselect",
+        )
+
+        # Button to confirm provider selection
+        if st.button("Confirm Provider Selection"):
+            st.session_state.selected_providers = selected_providers
+            st.session_state.provider_selection_confirmed = True
+
+    if st.session_state.get("provider_selection_confirmed", False):
+        st.session_state.provider_selection_confirmed = False
+
+    # Use the confirmed selection or default to all providers
+    selected_providers = st.session_state.get("selected_providers", available_providers)
+
+    # Ensure at least one provider is selected
+    if not selected_providers:
+        st.sidebar.warning("Please select at least one AI provider.")
+        selected_providers = ["Ollama"]  # Default to Ollama if no provider is selected
+
+    # API Key inputs (only shown if selected and not set, excluding Ollama)
+    api_keys = {}
+    for provider in selected_providers:
+        if provider != "Ollama":
+            env_var_name = f"{provider.upper()}_API_KEY"
+            key_state = f"{provider.lower()}_api_key_set"
+
+            # Initialize session state for this provider if not already done
+            if key_state not in st.session_state:
+                st.session_state[key_state] = False
+
+            # Check if the key is in the environment or has been set in this session
+            if not os.getenv(env_var_name) and not st.session_state[key_state]:
+                with st.sidebar.expander(f"{provider} API Key", expanded=False):
+                    api_key = st.text_input(
+                        f"Enter your {provider} API key",
+                        type="password",
+                        key=f"{provider.lower()}_api_key_input",
+                    )
+                    if api_key:
+                        if LLMManager.validate_api_key(provider, api_key):
+                            api_keys[provider] = api_key
+                            os.environ[env_var_name] = api_key
+                            st.session_state[key_state] = True
+                            st.success(f"{provider} API key validated successfully!")
+                            st.rerun()  # Rerun to hide the input field
+                        else:
+                            st.error(f"Invalid {provider} API key. Please try again.")
+                    else:
+                        st.warning(f"{provider} API key not found or invalid.")
+
+    if api_keys:
+        st.sidebar.markdown("---")
+
+    # Provider and model selection
     chain_provider = st.sidebar.selectbox(
-        "Choose AI assistant response generation",
-        list(LLMManager.get_provider_models().keys()),
+        "Choose AI assistant response generation", options=selected_providers, index=0
     )
     chain_model = st.sidebar.selectbox(
         "Select specific model for responses",
@@ -65,7 +130,8 @@ def setup_sidebar() -> SidebarConfig:
 
     search_query_provider = st.sidebar.selectbox(
         "Choose AI assistant for relevant information retrieval",
-        list(LLMManager.get_provider_models().keys()),
+        options=selected_providers,
+        index=0,
     )
     search_query_model = st.sidebar.selectbox(
         "Select specific model for retrieval",
@@ -107,6 +173,8 @@ def setup_sidebar() -> SidebarConfig:
         url=url,
         selected_function=selected_function,
         functions=functions,
+        api_keys=api_keys,
+        selected_providers=selected_providers,
     )
 
 
