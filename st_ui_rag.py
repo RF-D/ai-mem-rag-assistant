@@ -36,7 +36,18 @@ from scrape_sitemap import scrape_sitemap
 
 
 # Components
-from components.rag_sidebar import setup_sidebar
+from components.rag_sidebar import (
+    setup_sidebar,
+    file_uploader,
+    index_name_for_sitemap_scraper,
+    crawl_parameters,
+    youtube_chat_submit,
+    crawl_submit,
+    sitemap_scraper_submit,
+    add_to_memory_button,
+    display_results,
+    handle_split_result,
+)
 from components.streamlit_app_initializer import initialize_streamlit_app
 
 load_dotenv()
@@ -198,179 +209,52 @@ sidebar = st.sidebar
 
 split_result = None
 
-# Show the input field for index name only if the selected function is "Sitemap Scraper"
-if sidebar_config.selected_function == "Sitemap Scraper":
-    st.session_state.index_name = st.sidebar.text_input(
-        "Index Name", value=st.session_state.index_name
-    )
-
 
 # Show crawl parameters only when "Crawl" is selected
 if sidebar_config.selected_function == "Crawl":
-    with st.sidebar.form("crawl_params_form"):
-        st.header("Crawl Parameters")
+    crawl_parameters()
 
-        max_depth = st.number_input(
-            "Max Depth",
-            min_value=1,
-            max_value=10,
-            value=st.session_state.crawl_params["crawlerOptions"]["maxDepth"],
-        )
+# Show the input field for index name when the selected function is "Sitemap Scraper"
+index_name_for_sitemap_scraper(sidebar_config.selected_function)
 
-        limit = st.number_input(
-            "Limit",
-            min_value=1,
-            max_value=1000,
-            value=st.session_state.crawl_params["crawlerOptions"]["limit"],
-        )
+url = sidebar_config.url
 
-        crawl_delay = st.number_input(
-            "Crawl Delay",
-            min_value=0.1,
-            max_value=5.0,
-            value=st.session_state.crawl_params["crawlerOptions"]["crawldelay"],
-            step=0.1,
-        )
 
-        only_main_content = st.checkbox(
-            "Only Main Content",
-            value=st.session_state.crawl_params["pageOptions"]["onlyMainContent"],
-        )
-
-        if st.form_submit_button("Apply Crawl Parameters"):
-            st.session_state.crawl_params["crawlerOptions"]["maxDepth"] = max_depth
-            st.session_state.crawl_params["crawlerOptions"]["limit"] = limit
-            st.session_state.crawl_params["crawlerOptions"]["crawldelay"] = crawl_delay
-            st.session_state.crawl_params["pageOptions"][
-                "onlyMainContent"
-            ] = only_main_content
-
+# SUBMIT URL per chosen function
 if st.sidebar.button("URL Submit", key="url_submit"):
-    if sidebar_config.url:
-        if sidebar_config.selected_function == "Sitemap Scraper":
-            try:
-                # Display a progress bar in the sidebar while the function is running
-                progress_bar = st.sidebar.progress(0)
-
-                def progress_callback(current, total):
-                    progress_bar.progress(current / total)
-
-                scrape_sitemap(
-                    sidebar_config.url, st.session_state.index_name, progress_callback
-                )
-                st.sidebar.success("Sitemap scraped and results embedded successfully!")
-            except Exception as e:
-                st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
-                st.sidebar.error("Please check the error message and try again.")
-        elif sidebar_config.selected_function == "YouTube Chat":
-            # Call the scrape_sitemap function without splitting the result
-            fn_result = sidebar_config.youtube_chat(sidebar_config.url)
-            split_result = split_text(fn_result)
-            # Store the split_result in session state
-            st.session_state.split_result = split_result
-        elif sidebar_config.selected_function == "Crawl":
-            fn_result = sidebar_config.functions[sidebar_config.selected_function](
-                sidebar_config.url, params=st.session_state.crawl_params
-            )
-            if fn_result is not None:
-                split_result = split_md(fn_result)
-                st.session_state.split_result = split_result
-            else:
-                st.error(
-                    "An error occurred during crawling. Please check the logs for more information."
-                )
-        else:
-            # Call the selected function with the provided URL and split the result
-            fn_result = sidebar_config.functions[sidebar_config.selected_function](
-                sidebar_config.url
-            )
-            split_result = split_md(fn_result)
-            if split_result:
-                st.session_state.split_result = split_result
-                st.success(
-                    f"{sidebar_config.selected_function} completed successfully!"
-                )
-            else:
-                st.warning(
-                    f"{sidebar_config.selected_function} completed, but no results were found."
-                )
-    else:
+    if not sidebar_config.url:
         st.warning("Please enter a valid URL.")
-
-# Check if split_result exists in the session state and the selected function is not "Sitemap Scraper"
-if (
-    "split_result" in st.session_state
-    and sidebar_config.selected_function != "Sitemap Scraper"
-):
-    split_result = st.session_state.split_result
-
-    # Show the input field for index name only if split_result is not empty
-    if split_result:
-        # Display the index name input field and update the session state
-        st.session_state.index_name = st.sidebar.text_input(
-            "Index Name", value=st.session_state.index_name
-        )
-
-        if st.sidebar.button("Add to Memory", key="add_to_memory"):
-            try:
-                embeddings = vo_embed()
-                PineconeVectorStore.from_documents(
-                    documents=split_result,
-                    embedding=embeddings,
-                    index_name=st.session_state.index_name,
-                )
-                st.sidebar.success("Embedding completed successfully!")
-            except Exception as e:
-                st.sidebar.error(f"Embedding failed: {str(e)}")
-                st.sidebar.error("Please check the error message and try again.")
     else:
-        st.warning("No results to embed.")
-# File Uploader
-with st.sidebar.expander("Upload and Embed Documents"):
-    upload_method = st.radio("Upload Method", ["File", "Text"])
+        match sidebar_config.selected_function:
+            case "Sitemap Scraper":
+                sitemap_scraper_submit(url)
 
-    loaded_docs = None
-    if upload_method == "File":
-        uploaded_file = st.file_uploader("Choose a file", type=["txt", "pdf", "docx"])
-        if uploaded_file:
-            # Save the uploaded file to a temporary file
-            with tempfile.NamedTemporaryFile(
-                delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}'
-            ) as temp_file:
-                temp_file.write(uploaded_file.getvalue())
-                temp_file_path = temp_file.name
-
-            # Load documents from the temporary file
-            loaded_docs = load_documents(file_path=temp_file_path)
-
-            # Clean up the temporary file
-            os.remove(temp_file_path)
-    else:
-        text_input = st.text_area("Paste your text here")
-        if text_input:
-            loaded_docs = load_documents(text=text_input)
-
-    st.session_state.upload_index_name = st.text_input(
-        "Index Name for File/Text Uploader", value=st.session_state.upload_index_name
-    )
-
-    if st.button("Embed Documents", key="embed_documents"):
-        if loaded_docs and st.session_state.upload_index_name:
-            try:
-                embeddings = vo_embed()
-                PineconeVectorStore.from_documents(
-                    documents=loaded_docs,
-                    embedding=embeddings,
-                    index_name=st.session_state.upload_index_name,
+            case "YouTube Chat":
+                youtube_chat_submit(url)
+            case "Crawl":
+                crawl_submit(url)
+            case _:
+                # Handle scrape function and other cases
+                fn_result = sidebar_config.functions[sidebar_config.selected_function](
+                    url
                 )
-                st.success("Embedding completed successfully!")
-            except Exception as e:
-                st.error(f"Embedding failed: {str(e)}")
-                st.error("Please check the error message and try again.")
-        elif not loaded_docs:
-            st.warning("No documents to embed.")
-        else:
-            st.warning("Please enter an index name for embedding.")
+                split_result = split_md(fn_result)
+                if split_result:
+                    st.success(
+                        f"{sidebar_config.selected_function} completed successfully!"
+                    )
+                else:
+                    st.warning(
+                        f"{sidebar_config.selected_function} completed, but no results were found."
+                    )
+        st.session_state.sidebar_config
+
+# Check if split_result exists and is not empty, and the function is not "Sitemap Scraper"
+handle_split_result(sidebar_config.selected_function)
+
+# Upload File or Text documents
+st.cache_data()
+file_uploader()
 
 # Reset chat history button
 if st.sidebar.button("Reset Chat History"):
@@ -454,9 +338,7 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Write something here...", key="input")
 
 # Display the scrape result below the user input
-if split_result:
-    with st.expander("Scrape Result", expanded=False):
-        st.write(split_result)
+display_results(split_result, sidebar_config.selected_function)
 
 # Chat Container
 if user_input:

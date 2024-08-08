@@ -7,6 +7,14 @@ from tools.youtube_chat import youtube_chat
 from tools.firecrawl_scrape_loader import scrape
 from tools.firecrawl_crawl_loader import crawl
 from pinecone import Pinecone
+from tools.doc_loader import load_documents
+import tempfile
+from langchain_pinecone import PineconeVectorStore
+from tools.voyage_embeddings import vo_embed
+from tools.text_splitter import split_md, split_text
+import traceback
+
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -100,3 +108,188 @@ def setup_sidebar() -> SidebarConfig:
         selected_function=selected_function,
         functions=functions,
     )
+
+
+def index_name_for_sitemap_scraper(selected_function):
+    if selected_function == "Sitemap Scraper":
+        st.session_state.index_name = st.sidebar.text_input(
+            "Index Name", value=st.session_state.index_name
+        )
+
+
+def file_uploader():
+    # File Uploader
+    with st.sidebar.expander("Upload and Embed Documents"):
+        upload_method = st.radio("Upload Method", ["File", "Text"])
+
+        loaded_docs = None
+        if upload_method == "File":
+            uploaded_file = st.file_uploader(
+                "Choose a file", type=["txt", "pdf", "docx"]
+            )
+            if uploaded_file:
+                # Save the uploaded file to a temporary file
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=f'.{uploaded_file.name.split(".")[-1]}'
+                ) as temp_file:
+                    temp_file.write(uploaded_file.getvalue())
+                    temp_file_path = temp_file.name
+
+                # Load documents from the temporary file
+                loaded_docs = load_documents(file_path=temp_file_path)
+
+                # Clean up the temporary file
+                os.remove(temp_file_path)
+        else:
+            text_input = st.text_area("Paste your text here")
+            if text_input:
+                loaded_docs = load_documents(text=text_input)
+
+        st.session_state.upload_index_name = st.text_input(
+            "Index Name for File/Text Uploader",
+            value=st.session_state.upload_index_name,
+        )
+
+        if st.button("Embed Documents", key="embed_documents"):
+            if loaded_docs and st.session_state.upload_index_name:
+                try:
+                    embeddings = vo_embed()
+                    PineconeVectorStore.from_documents(
+                        documents=loaded_docs,
+                        embedding=embeddings,
+                        index_name=st.session_state.upload_index_name,
+                    )
+                    st.success("Embedding completed successfully!")
+                except Exception as e:
+                    st.error(f"Embedding failed: {str(e)}")
+                    st.error("Please check the error message and try again.")
+            elif not loaded_docs:
+                st.warning("No documents to embed.")
+            else:
+                st.warning("Please enter an index name for embedding.")
+
+
+def crawl_parameters():
+    with st.sidebar.form("crawl_params_form"):
+        st.header("Crawl Parameters")
+
+        max_depth = st.number_input(
+            "Max Depth",
+            min_value=1,
+            max_value=10,
+            value=st.session_state.crawl_params["crawlerOptions"]["maxDepth"],
+        )
+
+        limit = st.number_input(
+            "Limit",
+            min_value=1,
+            max_value=1000,
+            value=st.session_state.crawl_params["crawlerOptions"]["limit"],
+        )
+
+        crawl_delay = st.number_input(
+            "Crawl Delay",
+            min_value=0.1,
+            max_value=5.0,
+            value=st.session_state.crawl_params["crawlerOptions"]["crawldelay"],
+            step=0.1,
+        )
+
+        only_main_content = st.checkbox(
+            "Only Main Content",
+            value=st.session_state.crawl_params["pageOptions"]["onlyMainContent"],
+        )
+
+        if st.form_submit_button("Apply Crawl Parameters"):
+            st.session_state.crawl_params["crawlerOptions"]["maxDepth"] = max_depth
+            st.session_state.crawl_params["crawlerOptions"]["limit"] = limit
+            st.session_state.crawl_params["crawlerOptions"]["crawldelay"] = crawl_delay
+            st.session_state.crawl_params["pageOptions"][
+                "onlyMainContent"
+            ] = only_main_content
+
+
+def youtube_chat_submit(url):
+    try:
+        fn_result = youtube_chat(url)
+        if fn_result is not None:
+            split_result = split_md(fn_result)
+            st.session_state.split_result = split_result
+            split_result = split_text(fn_result)
+            return split_result
+        else:
+            st.error(
+                "The YouTube chat function returned None. Please check the input and try again."
+            )
+            return None
+    except Exception as e:
+        error_message = f"An error occurred during the YouTube chat: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        st.error(error_message)
+        return None
+
+
+def crawl_submit(url):
+    try:
+        fn_result = crawl(url, params=st.session_state.crawl_params)
+        if fn_result is not None:
+            split_result = split_md(fn_result)
+            st.session_state.split_result = split_result
+        else:
+            st.error(
+                "An error occurred during crawling. Please check the logs for more information."
+            )
+            return None
+        return split_result
+    except Exception as e:
+        error_message = f"An error occurred during crawling: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        st.error(error_message)
+        return None
+
+
+# check with a bigger sitemap to make sure it works
+def progress_callback(current, total):
+    progress_bar = st.sidebar.progress(0)
+    progress_bar.progress(current / total)
+
+
+def sitemap_scraper_submit(url):
+    try:
+        progress_bar = st.sidebar.progress(0)
+        progress_bar.progress_callback
+        scrape_sitemap(url, st.session_state.index_name, progress_callback)
+        st.sidebar.success("Sitemap scraped and results embedded successfully!")
+    except Exception as e:
+        st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
+        st.sidebar.error("Please check the error message and try again.")
+
+
+def add_to_memory_button(split_result):
+    if st.sidebar.button("Add to Memory", key="add_to_memory"):
+        try:
+            embeddings = vo_embed()
+            PineconeVectorStore.from_documents(
+                documents=split_result,
+                embedding=embeddings,
+                index_name=st.session_state.index_name,
+            )
+            st.sidebar.success("Embedding completed successfully!")
+        except Exception as e:
+            st.sidebar.error(f"Embedding failed: {str(e)}")
+            st.sidebar.error("Please check the error message and try again.")
+
+
+def display_results(split_result, selected_function):
+    if split_result and selected_function != "Sitemap Scraper":
+        with st.expander(f"{selected_function} Result", expanded=False):
+            st.write(split_result)
+
+
+def handle_split_result(selected_function):
+    if st.session_state.split_result and selected_function != "Sitemap Scraper":
+        split_result = st.session_state.split_result
+        st.session_state.index_name = st.sidebar.text_input(
+            "Index Name", value=st.session_state.index_name
+        )
+        add_to_memory_button(split_result)
+        return split_result
+    return None
