@@ -1,4 +1,4 @@
-# agent_claude
+# ai-mem-rag-assistant
 
 ## Setup
 
@@ -70,7 +70,7 @@ Add billing information to avoid rate limit error messages.
 
 ##### Pinecone
 
-Visit https://www.pinecone.io/ to setup an account. 
+Visit https://www.pinecone.io/ to setup an account.
 
 Feel free to use Pinecone's curl script to create your first index (called
 "quickstart").
@@ -123,4 +123,3 @@ You can now view the Streamlit app in your browser.
 
 Local URL: http://localhost:8501
 Network URL: http://192.168.68.61:8501
-
