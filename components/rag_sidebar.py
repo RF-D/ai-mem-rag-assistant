@@ -336,6 +336,10 @@ def progress_callback(current, total):
 
 def sitemap_scraper_submit(url, pinecone_index_name):
     try:
+        # Initialize progress_bar in session state
+        if "progress_bar" not in st.session_state:
+            st.session_state.progress_bar = st.sidebar.progress(0)
+
         st.session_state.progress_bar.empty()  # Clear previous progress
         result = scrape_sitemap(url, pinecone_index_name, progress_callback)
         st.sidebar.success("Sitemap scraped and results embedded successfully!")

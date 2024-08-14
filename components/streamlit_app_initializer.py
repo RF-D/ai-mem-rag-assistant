@@ -40,10 +40,6 @@ def initialize_streamlit_app():
     if "sidebar_config" not in st.session_state:
         st.session_state.sidebar_config = "None"
 
-    # Initialize progress_bar in session state
-    if "progress_bar" not in st.session_state:
-        st.session_state.progress_bar = st.sidebar.progress(0)
-
     # Set up sidebar
     sidebar_config = setup_sidebar()
 
