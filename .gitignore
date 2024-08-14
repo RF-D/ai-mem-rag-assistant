@@ -7,3 +7,6 @@ components/__pycache__
 my-app/
 __pycache__
 venv/
+
+# Ignore crawl result files
+crawl_result_*.json
