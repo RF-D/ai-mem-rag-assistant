@@ -349,11 +349,25 @@ def add_to_memory_button(split_result):
     if st.sidebar.button("Add to Memory", key="add_to_memory"):
         try:
             embeddings = vo_embed()
+
+            # Store current state
+            current_state = {
+                "messages": st.session_state.get("messages", []),
+                "split_result": st.session_state.get("split_result", None),
+                "results_to_display": st.session_state.get("results_to_display", False),
+                "sidebar_config": st.session_state.get("sidebar_config", None),
+            }
+
+            # Perform embedding
             PineconeVectorStore.from_documents(
                 documents=split_result,
                 embedding=embeddings,
                 index_name=st.session_state.index_name,
             )
+
+            # Restore state
+            st.session_state.update(current_state)
+
             st.sidebar.success("Embedding completed successfully!")
         except Exception as e:
             st.sidebar.error(f"Embedding failed: {str(e)}")
