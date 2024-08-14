@@ -13,7 +13,7 @@ from langchain_pinecone import PineconeVectorStore
 from tools.voyage_embeddings import vo_embed
 from tools.text_splitter import split_md, split_text
 import traceback
-
+from langchain.schema import Document
 
 from dotenv import load_dotenv
 
@@ -283,16 +283,21 @@ def youtube_chat_submit(url):
         if fn_result is not None:
             split_result = split_md(fn_result)
             st.session_state.split_result = split_result
-            split_result = split_text(fn_result)
-            return split_result
+            st.session_state.results_to_display = True
+            st.success("YouTube chat completed successfully!")
+            return split_text(fn_result)
         else:
             st.error(
                 "The YouTube chat function returned None. Please check the input and try again."
             )
+            st.session_state.split_result = None
+            st.session_state.results_to_display = False
             return None
     except Exception as e:
         error_message = f"An error occurred during the YouTube chat: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
         st.error(error_message)
+        st.session_state.split_result = None
+        st.session_state.results_to_display = False
         return None
 
 
@@ -300,35 +305,44 @@ def crawl_submit(url):
     try:
         fn_result = crawl(url, params=st.session_state.crawl_params)
         if fn_result is not None:
-            split_result = split_md(fn_result)
+            if isinstance(fn_result, str):
+                # Convert the string to a Document object
+                doc = Document(page_content=fn_result, metadata={"source": url})
+                split_result = split_md([doc])
+            else:
+                split_result = fn_result  # Assume it's already split if not a string
             st.session_state.split_result = split_result
+            st.session_state.results_to_display = True
+            st.success("Crawl completed successfully!")
+            return split_result
         else:
             st.error(
                 "An error occurred during crawling. Please check the logs for more information."
             )
+            st.session_state.split_result = None
+            st.session_state.results_to_display = False
             return None
-        return split_result
     except Exception as e:
         error_message = f"An error occurred during crawling: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
         st.error(error_message)
+        st.session_state.split_result = None
+        st.session_state.results_to_display = False
         return None
-
-
-# check with a bigger sitemap to make sure it works
-def progress_callback(current, total):
-    progress_bar = st.sidebar.progress(0)
-    progress_bar.progress(current / total)
 
 
 def sitemap_scraper_submit(url):
     try:
         progress_bar = st.sidebar.progress(0)
         progress_bar.progress_callback
-        scrape_sitemap(url, st.session_state.index_name, progress_callback)
+        result = scrape_sitemap(url, st.session_state.index_name, progress_callback)
         st.sidebar.success("Sitemap scraped and results embedded successfully!")
+        st.session_state.results_to_display = True
+        return result
     except Exception as e:
         st.sidebar.error(f"Sitemap scraping and embedding failed: {str(e)}")
         st.sidebar.error("Please check the error message and try again.")
+        st.session_state.results_to_display = False
+        return None
 
 
 def add_to_memory_button(split_result):
@@ -350,13 +364,19 @@ def display_results(split_result, selected_function):
     if split_result and selected_function != "Sitemap Scraper":
         with st.expander(f"{selected_function} Result", expanded=False):
             st.write(split_result)
+    elif selected_function != "Sitemap Scraper":
+        st.info("No results to display. Try submitting a URL first.")
 
 
 def handle_split_result(selected_function):
-    if st.session_state.split_result and selected_function != "Sitemap Scraper":
+    if (
+        "split_result" in st.session_state
+        and st.session_state.split_result
+        and selected_function != "Sitemap Scraper"
+    ):
         split_result = st.session_state.split_result
         st.session_state.index_name = st.sidebar.text_input(
-            "Index Name", value=st.session_state.index_name
+            "Index Name", value=st.session_state.get("index_name", "")
         )
         add_to_memory_button(split_result)
         return split_result

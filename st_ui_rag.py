@@ -223,7 +223,11 @@ embeddings = load_embedding_model()
 sidebar = st.sidebar
 
 
-split_result = None
+# Initialize session state variables
+if "split_result" not in st.session_state:
+    st.session_state.split_result = None
+if "results_to_display" not in st.session_state:
+    st.session_state.results_to_display = False
 
 
 # Show crawl parameters only when "Crawl" is selected
@@ -241,29 +245,35 @@ if st.sidebar.button("URL Submit", key="url_submit"):
     if not sidebar_config.url:
         st.warning("Please enter a valid URL.")
     else:
+        result = None  # Initialize result variable
         match sidebar_config.selected_function:
             case "Sitemap Scraper":
-                sitemap_scraper_submit(url)
-
+                result = sitemap_scraper_submit(url)
             case "YouTube Chat":
-                youtube_chat_submit(url)
+                result = youtube_chat_submit(url)
             case "Crawl":
-                crawl_submit(url)
+                result = crawl_submit(url)
             case _:
                 # Handle scrape function and other cases
                 fn_result = sidebar_config.functions[sidebar_config.selected_function](
                     url
                 )
-                split_result = split_md(fn_result)
-                if split_result:
+                st.session_state.split_result = split_md(fn_result)
+                if st.session_state.split_result:
                     st.success(
                         f"{sidebar_config.selected_function} completed successfully!"
                     )
+                    st.session_state.results_to_display = True
+                    result = st.session_state.split_result
                 else:
                     st.warning(
                         f"{sidebar_config.selected_function} completed, but no results were found."
                     )
-        st.session_state.sidebar_config
+                    st.session_state.results_to_display = False
+
+        # Only update session state if there's a result
+        if result is not None:
+            st.session_state.sidebar_config = sidebar_config
 
 # Check if split_result exists and is not empty, and the function is not "Sitemap Scraper"
 handle_split_result(sidebar_config.selected_function)
@@ -354,7 +364,9 @@ for message in st.session_state.messages:
 user_input = st.chat_input("Write something here...", key="input")
 
 # Display the scrape result below the user input
-display_results(split_result, sidebar_config.selected_function)
+if st.session_state.results_to_display:
+    display_results(st.session_state.split_result, sidebar_config.selected_function)
+    st.session_state.results_to_display = False
 
 # Chat Container
 if user_input:
