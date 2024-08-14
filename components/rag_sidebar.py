@@ -284,7 +284,7 @@ def youtube_chat_submit(url):
             split_result = split_md(fn_result)
             st.session_state.split_result = split_result
             st.session_state.results_to_display = True
-            st.success("YouTube chat completed successfully!")
+            st.success("YouTube video content extracted successfully!")
             return split_text(fn_result)
         else:
             st.error(
@@ -350,14 +350,6 @@ def add_to_memory_button(split_result):
         try:
             embeddings = vo_embed()
 
-            # Store current state
-            current_state = {
-                "messages": st.session_state.get("messages", []),
-                "split_result": st.session_state.get("split_result", None),
-                "results_to_display": st.session_state.get("results_to_display", False),
-                "sidebar_config": st.session_state.get("sidebar_config", None),
-            }
-
             # Perform embedding
             PineconeVectorStore.from_documents(
                 documents=split_result,
@@ -365,10 +357,13 @@ def add_to_memory_button(split_result):
                 index_name=st.session_state.index_name,
             )
 
-            # Restore state
-            st.session_state.update(current_state)
+            # Update the session state to reflect the new embeddings
+            if "embedded_documents" not in st.session_state:
+                st.session_state.embedded_documents = []
+            st.session_state.embedded_documents.extend(split_result)
 
             st.sidebar.success("Embedding completed successfully!")
+
         except Exception as e:
             st.sidebar.error(f"Embedding failed: {str(e)}")
             st.sidebar.error("Please check the error message and try again.")

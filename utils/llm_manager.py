@@ -144,7 +144,7 @@ class LLMManager:
 
         providers = {
             "Anthropic": lambda api_key: ChatAnthropic(
-                api_key=api_key, model=model, temperature=0.8, streaming=True
+                api_key=api_key, model=model, temperature=0.6
             ),
             "OpenAI": lambda api_key: ChatOpenAI(
                 api_key=api_key, model=model, temperature=0.7
