@@ -226,8 +226,8 @@ sidebar = st.sidebar
 # Initialize session state variables
 if "split_result" not in st.session_state:
     st.session_state.split_result = None
-if "results_to_display" not in st.session_state:
-    st.session_state.results_to_display = False
+if "display_results" not in st.session_state:
+    st.session_state.display_results = False
 
 
 # Show crawl parameters only when "Crawl" is selected
@@ -248,7 +248,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
         result = None  # Initialize result variable
         match sidebar_config.selected_function:
             case "Sitemap Scraper":
-                result = sitemap_scraper_submit(url)
+                result = sitemap_scraper_submit(url, sidebar_config.pinecone_index_name)
             case "YouTube Chat":
                 result = youtube_chat_submit(url)
             case "Crawl":
@@ -263,13 +263,13 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                     st.success(
                         f"{sidebar_config.selected_function} completed successfully!"
                     )
-                    st.session_state.results_to_display = True
+                    st.session_state.display_results = True
                     result = st.session_state.split_result
                 else:
                     st.warning(
                         f"{sidebar_config.selected_function} completed, but no results were found."
                     )
-                    st.session_state.results_to_display = False
+                    st.session_state.display_results = False
 
         # Only update session state if there's a result
         if result is not None:
@@ -277,6 +277,7 @@ if st.sidebar.button("URL Submit", key="url_submit"):
 
 # Check if split_result exists and is not empty, and the function is not "Sitemap Scraper"
 handle_split_result(sidebar_config.selected_function)
+
 
 # Upload File or Text documents
 st.cache_data()
@@ -363,10 +364,8 @@ for message in st.session_state.messages:
 
 user_input = st.chat_input("Write something here...", key="input")
 
-# Display the scrape result below the user input
-if st.session_state.results_to_display:
+if st.session_state.display_results:
     display_results(st.session_state.split_result, sidebar_config.selected_function)
-    st.session_state.results_to_display = False
 
 # Chat Container
 if user_input:

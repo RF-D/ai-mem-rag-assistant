@@ -330,11 +330,15 @@ def crawl_submit(url):
         return None
 
 
-def sitemap_scraper_submit(url):
+# check with a bigger sitemap to make sure it works
+def progress_callback(current, total):
+    progress_bar = st.sidebar.progress(0)
+    progress_bar.progress(current / total)
+
+
+def sitemap_scraper_submit(url, pinecone_index_name):
     try:
-        progress_bar = st.sidebar.progress(0)
-        progress_bar.progress_callback
-        result = scrape_sitemap(url, st.session_state.index_name, progress_callback)
+        result = scrape_sitemap(url, pinecone_index_name, progress_callback)
         st.sidebar.success("Sitemap scraped and results embedded successfully!")
         st.session_state.results_to_display = True
         return result
@@ -346,6 +350,7 @@ def sitemap_scraper_submit(url):
 
 
 def add_to_memory_button(split_result):
+
     if st.sidebar.button("Add to Memory", key="add_to_memory"):
         try:
             embeddings = vo_embed()
@@ -363,6 +368,10 @@ def add_to_memory_button(split_result):
             st.session_state.embedded_documents.extend(split_result)
 
             st.sidebar.success("Embedding completed successfully!")
+
+            # Clear the display results after adding to memory
+            st.session_state.display_results = False
+            st.session_state.split_result = None
 
         except Exception as e:
             st.sidebar.error(f"Embedding failed: {str(e)}")
