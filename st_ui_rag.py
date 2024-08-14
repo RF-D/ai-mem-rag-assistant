@@ -247,7 +247,9 @@ if st.sidebar.button("URL Submit", key="url_submit"):
     else:
         result = None  # Initialize result variable
         match sidebar_config.selected_function:
-            case "Sitemap Scraper":
+            case (
+                "Sitemap Scraper"
+            ):  # TODO: add error handling for empty sitemap index name
                 result = sitemap_scraper_submit(url, sidebar_config.pinecone_index_name)
             case "YouTube Chat":
                 result = youtube_chat_submit(url)
