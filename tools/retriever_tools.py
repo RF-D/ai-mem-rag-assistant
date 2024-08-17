@@ -19,22 +19,24 @@ def retriever_tool(vectorstore, search_type="similarity", search_kwargs={"k": 25
 def retriever_tool_meta(vectorstore):
     def retrieve_documents(query):
         # Retrieve documents
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 50})
+        # retriever = vectorstore.similarity_search(query, k=50)
 
         # Use VoyageAIRerank for reranking
         reranker = VoyageAIRerank(
             model="rerank-1",
             voyageai_api_key=os.getenv("VOYAGE_API_KEY"),
             top_k=10,
+            instruction="Prioritize documents that are most relevant and directly answer the query. Consider context, specificity, and factual accuracy.",
         )
 
         # Create a ContextualCompressionRetriever
         compression_retriever = ContextualCompressionRetriever(
-            base_compressor=reranker, base_retriever=retriever
+            base_compressor=reranker,
+            base_retriever=vectorstore.as_retriever(search_kwargs={"k": 50}),
         )
 
         # Retrieve and rerank documents
-        compressed_docs = compression_retriever.get_relevant_documents(query)
+        compressed_docs = compression_retriever.invoke(query)
 
         # Enhance metadata usage
         for doc in compressed_docs:
