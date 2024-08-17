@@ -20,7 +20,7 @@ def split_paste(data, chunk_size=1297, chunk_overlap=200):
     return text_splitter.split_text(data)
 
 
-def split_md(data, chunk_size=2000, chunk_overlap=300):
+def split_md(data, chunk_size=2000, chunk_overlap=200):
     def markdown_text_splitter(text, max_length=chunk_size):
         chunks = []
         current_chunk = ""

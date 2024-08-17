@@ -46,7 +46,8 @@ class LLMManager:
         ],
         "Ollama": [],
     }
-    MAX_HISTORY_TOKENS = 40000
+    # TODO: Make this dynamic based on the model
+    MAX_HISTORY_TOKENS = 200000
     ollama_process = None
 
     @staticmethod
@@ -144,7 +145,7 @@ class LLMManager:
 
         providers = {
             "Anthropic": lambda api_key: ChatAnthropic(
-                api_key=api_key, model=model, temperature=0.8, streaming=True
+                api_key=api_key, model=model, temperature=0.6
             ),
             "OpenAI": lambda api_key: ChatOpenAI(
                 api_key=api_key, model=model, temperature=0.7
