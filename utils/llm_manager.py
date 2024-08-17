@@ -46,7 +46,8 @@ class LLMManager:
         ],
         "Ollama": [],
     }
-    MAX_HISTORY_TOKENS = 40000
+    # TODO: Make this dynamic based on the model
+    MAX_HISTORY_TOKENS = 200000
     ollama_process = None
 
     @staticmethod
