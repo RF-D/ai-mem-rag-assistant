@@ -190,9 +190,18 @@ class LLMManager:
         return api_key
 
     @staticmethod
+    def simple_token_count(text: str) -> int:
+        # This is a very rough estimation and won't be as accurate as model-specific tokenizers
+        return len(re.findall(r"\w+|[^\w\s]", text))
+
+    @staticmethod
     def count_tokens(text: str, provider: str, model: str) -> int:
-        llm = LLMManager.load_llm(provider, model)
-        return llm.get_num_tokens(text)
+        try:
+            llm = LLMManager.load_llm(provider, model)
+            return llm.get_num_tokens(text)
+        except Exception as e:
+            print(f"Error using LLM token counter: {str(e)}. Using simple token count.")
+            return LLMManager.simple_token_count(text)
 
     @staticmethod
     def get_provider_models():
