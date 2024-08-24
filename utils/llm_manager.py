@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Dict
 from sys import stdout
+import re
 
 # Langchain imports
 from langchain_anthropic import ChatAnthropic
