@@ -46,6 +46,13 @@ class LLMManager:
             "open-mistral-nemo",
         ],
         "Ollama": [],
+        "OpenRouter": [
+            "openai/o1-mini-2024-09-12",
+            "openai/o1-preview-2024-09-12",
+            "cohere/command-r-08-2024",
+            "google/gemini-pro-1.5",
+            "qwen/qwen-2.5-72b-instruct",
+        ],
     }
     # TODO: Make this dynamic based on the model
     MAX_HISTORY_TOKENS = 200000
@@ -58,6 +65,7 @@ class LLMManager:
             "OpenAI": "OPENAI_API_KEY",
             "Groq": "GROQ_API_KEY",
             "Mistral": "MISTRAL_API_KEY",
+            "OpenRouter": "OPENROUTER_API_KEY",
         }
         return bool(os.getenv(env_var_names.get(provider, "")))
 
@@ -164,6 +172,12 @@ class LLMManager:
             "Mistral": lambda api_key: ChatMistralAI(
                 api_key=api_key, model=model, temperature=1, streaming=True
             ),
+            "OpenRouter": lambda api_key: ChatOpenAI(
+                model=model,
+                api_key=api_key,
+                base_url="https://openrouter.ai/api/v1",
+                temperature=0.7,
+            ),
         }
         if provider not in providers:
             raise ValueError(f"Unsupported provider: {provider}")
@@ -266,6 +280,12 @@ class LLMManager:
                 ChatMistralAI(api_key=api_key, model="mistral-small-latest").invoke(
                     "Test"
                 )
+            elif provider == "OpenRouter":
+                ChatOpenAI(
+                    api_key=api_key,
+                    base_url="https://openrouter.ai/api/v1",
+                    model="qwen/qwen-2-vl-7b-instruct:free",
+                ).invoke("Test")
             else:
                 return False  # Unsupported provider
             return True
