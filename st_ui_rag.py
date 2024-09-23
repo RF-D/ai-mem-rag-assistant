@@ -299,11 +299,16 @@ def trim_chat_history(
     user_message_found = False
 
     for message in reversed(messages):
-        message_tokens = LLMManager.count_tokens(
-            message["content"],
-            sidebar_config.chain_provider,
-            sidebar_config.chain_model,
-        )
+        try:
+            message_tokens = LLMManager.count_tokens(
+                message["content"],
+                sidebar_config.chain_provider,
+                sidebar_config.chain_model,
+            )
+        except Exception as e:
+            st.warning(f"Error counting tokens: {str(e)}. Using estimated token count.")
+            # Fallback: Estimate token count based on character length
+            message_tokens = len(message["content"]) // 4  # Rough estimate
 
         if total_prompt_tokens + message_tokens > max_tokens and user_message_found:
             break
