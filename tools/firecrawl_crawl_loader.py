@@ -48,15 +48,25 @@ def crawl(url, params=None, wait_until_done=True, timeout=300, check_interval=5)
 
         # Prepare the parameters in the format expected by FirecrawlApp
         firecrawl_params = {
-            "limit": crawl_params.get("max_pages", 300),
-            "maxDepth": crawl_params.get("max_depth", 3),
+            "limit": crawl_params.get("max_pages", default_crawl_params["max_pages"]),
+            "maxDepth": crawl_params.get(
+                "max_depth", default_crawl_params["max_depth"]
+            ),
             "scrapeOptions": {
-                "onlyMainContent": crawl_params.get("only_main_content", True),
+                "onlyMainContent": crawl_params.get(
+                    "only_main_content", default_crawl_params["only_main_content"]
+                ),
                 "formats": ["markdown", "html"],
             },
         }
 
+        # Store crawl_delay separately as it's not recognized by the API, need to check if we can still use it
+        crawl_delay = crawl_params.get(
+            "crawl_delay", default_crawl_params["crawl_delay"]
+        )
+
         logger.info(f"Crawl parameters: {firecrawl_params}")
+        logger.info(f"Crawl delay: {crawl_delay}")
 
         try:
             crawl_status = app.crawl_url(
@@ -66,6 +76,9 @@ def crawl(url, params=None, wait_until_done=True, timeout=300, check_interval=5)
         except Exception as e:
             logger.error(f"Exception during crawl_url call: {str(e)}", exc_info=True)
             return None
+
+        # If the crawl started successfully, implement the delay here
+        time.sleep(crawl_delay)
 
         if not wait_until_done:
             return {"status": "started", "crawl_status": crawl_status}
