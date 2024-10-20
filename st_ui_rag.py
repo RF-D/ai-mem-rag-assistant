@@ -50,6 +50,7 @@ from components.rag_sidebar import (
 )
 from components.streamlit_app_initializer import initialize_streamlit_app
 
+
 load_dotenv()
 
 
@@ -247,24 +248,19 @@ if st.sidebar.button("URL Submit", key="url_submit"):
     else:
         result = None  # Initialize result variable
         match sidebar_config.selected_function:
-            case (
-                "Sitemap Scraper"
-            ):  # TODO: add error handling for empty sitemap index name
+            case "Sitemap Scraper":
                 result = sitemap_scraper_submit(url, sidebar_config.pinecone_index_name)
             case "YouTube Chat":
                 result = youtube_chat_submit(url)
             case "Crawl":
                 result = crawl_submit(url)
             case _:
-                # Handle scrape function and other cases
+                # Handle other cases
                 fn_result = sidebar_config.functions[sidebar_config.selected_function](
                     url
                 )
                 st.session_state.split_result = split_md(fn_result)
                 if st.session_state.split_result:
-                    st.success(
-                        f"{sidebar_config.selected_function} completed successfully!"
-                    )
                     st.session_state.display_results = True
                     result = st.session_state.split_result
                 else:
@@ -272,6 +268,28 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                         f"{sidebar_config.selected_function} completed, but no results were found."
                     )
                     st.session_state.display_results = False
+        if result:
+            if isinstance(result, str):
+                st.session_state.split_result = split_md(result)
+            else:
+                st.session_state.split_result = result
+
+            if st.session_state.split_result:
+                st.success(
+                    f"{sidebar_config.selected_function} completed successfully!"
+                )
+                st.session_state.display_results = True
+                result = st.session_state.split_result
+            else:
+                st.warning(
+                    f"{sidebar_config.selected_function} completed, but no results were found."
+                )
+                st.session_state.display_results = False
+        else:
+            st.error(
+                f"{sidebar_config.selected_function} failed or returned no results."
+            )
+            st.session_state.display_results = False
 
         # Only update session state if there's a result
         if result is not None:
@@ -371,6 +389,7 @@ for message in st.session_state.messages:
 
 user_input = st.chat_input("Write something here...", key="input")
 
+# Display results
 if st.session_state.display_results:
     display_results(st.session_state.split_result, sidebar_config.selected_function)
 
