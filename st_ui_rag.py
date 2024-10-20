@@ -267,14 +267,16 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 st.session_state.split_result = result
 
             if st.session_state.split_result:
-
                 st.success(
                     f"{sidebar_config.selected_function} completed successfully!"
                 )
+                st.session_state.display_results = True
+                result = st.session_state.split_result
             else:
                 st.warning(
                     f"{sidebar_config.selected_function} completed, but no results were found."
                 )
+                st.session_state.display_results = False
         else:
             st.error(
                 f"{sidebar_config.selected_function} failed or returned no results."

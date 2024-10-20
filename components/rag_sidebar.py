@@ -253,50 +253,51 @@ def crawl_parameters():
         else:
             return st.session_state.crawl_params.get(param_name, default_value)
 
-    # Update max_depth
-    max_depth = st.sidebar.number_input(
-        "Max Depth",
-        min_value=1,
-        max_value=10,
-        value=get_param_value("max_depth", 3),
-        help="Maximum depth for crawling",
-    )
+    with st.sidebar.form("crawl_params_form"):
+        # Update max_depth
+        max_depth = st.number_input(
+            "Max Depth",
+            min_value=1,
+            max_value=10,
+            value=get_param_value("max_depth", 3),
+            help="Maximum depth for crawling",
+        )
 
-    # Update max_pages
-    max_pages = st.sidebar.number_input(
-        "Max Pages",
-        min_value=1,
-        max_value=1000,
-        value=get_param_value("max_pages", 300),
-        help="Maximum number of pages to crawl",
-    )
+        # Update max_pages
+        max_pages = st.number_input(
+            "Max Pages",
+            min_value=1,
+            max_value=1000,
+            value=get_param_value("max_pages", 300),
+            help="Maximum number of pages to crawl",
+        )
 
-    # Update crawl_delay
-    crawl_delay = st.sidebar.number_input(
-        "Crawl Delay",
-        min_value=0.1,
-        max_value=10.0,
-        value=get_param_value("crawl_delay", 0.5),
-        step=0.1,
-        help="Delay between requests in seconds",
-    )
+        # Update crawl_delay
+        crawl_delay = st.number_input(
+            "Crawl Delay",
+            min_value=0.1,
+            max_value=10.0,
+            value=get_param_value("crawl_delay", 0.5),
+            step=0.1,
+            help="Delay between requests in seconds",
+        )
 
-    # Update only_main_content
-    only_main_content = st.sidebar.checkbox(
-        "Only Main Content",
-        value=get_param_value("only_main_content", True),
-        help="Extract only the main content of the page",
-    )
+        # Update only_main_content
+        only_main_content = st.checkbox(
+            "Only Main Content",
+            value=get_param_value("only_main_content", True),
+            help="Extract only the main content of the page",
+        )
 
-    # Update the session state with the new values
-    st.session_state.crawl_params = {
-        "max_depth": max_depth,
-        "max_pages": max_pages,
-        "crawl_delay": crawl_delay,
-        "only_main_content": only_main_content,
-    }
-
-    st.sidebar.info("Crawl parameters updated")
+        if st.form_submit_button("Apply Crawl Parameters"):
+            # Update the session state with the new values
+            st.session_state.crawl_params = {
+                "max_depth": max_depth,
+                "max_pages": max_pages,
+                "crawl_delay": crawl_delay,
+                "only_main_content": only_main_content,
+            }
+            st.sidebar.success("Crawl parameters updated")
 
 
 def youtube_chat_submit(url):
