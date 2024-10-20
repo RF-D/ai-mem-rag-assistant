@@ -238,43 +238,65 @@ def file_uploader():
 
 
 def crawl_parameters():
-    with st.sidebar.form("crawl_params_form"):
-        st.header("Crawl Parameters")
+    st.sidebar.header("Crawl Parameters")
 
-        max_depth = st.number_input(
-            "Max Depth",
-            min_value=1,
-            max_value=10,
-            value=st.session_state.crawl_params["crawlerOptions"]["maxDepth"],
-        )
+    # Initialize crawl_params if not present in session_state
+    if "crawl_params" not in st.session_state:
+        st.session_state.crawl_params = get_default_crawl_params()
 
-        limit = st.number_input(
-            "Limit",
-            min_value=1,
-            max_value=1000,
-            value=st.session_state.crawl_params["crawlerOptions"]["limit"],
-        )
+    # Function to get parameter value, handling both nested and flat structures
+    def get_param_value(param_name, default_value):
+        if "crawlerOptions" in st.session_state.crawl_params:
+            return st.session_state.crawl_params.get("crawlerOptions", {}).get(
+                param_name, default_value
+            )
+        else:
+            return st.session_state.crawl_params.get(param_name, default_value)
 
-        crawl_delay = st.number_input(
-            "Crawl Delay",
-            min_value=0.1,
-            max_value=5.0,
-            value=st.session_state.crawl_params["crawlerOptions"]["crawldelay"],
-            step=0.1,
-        )
+    # Update max_depth
+    max_depth = st.sidebar.number_input(
+        "Max Depth",
+        min_value=1,
+        max_value=10,
+        value=get_param_value("max_depth", 3),
+        help="Maximum depth for crawling",
+    )
 
-        only_main_content = st.checkbox(
-            "Only Main Content",
-            value=st.session_state.crawl_params["pageOptions"]["onlyMainContent"],
-        )
+    # Update max_pages
+    max_pages = st.sidebar.number_input(
+        "Max Pages",
+        min_value=1,
+        max_value=1000,
+        value=get_param_value("max_pages", 300),
+        help="Maximum number of pages to crawl",
+    )
 
-        if st.form_submit_button("Apply Crawl Parameters"):
-            st.session_state.crawl_params["crawlerOptions"]["maxDepth"] = max_depth
-            st.session_state.crawl_params["crawlerOptions"]["limit"] = limit
-            st.session_state.crawl_params["crawlerOptions"]["crawldelay"] = crawl_delay
-            st.session_state.crawl_params["pageOptions"][
-                "onlyMainContent"
-            ] = only_main_content
+    # Update crawl_delay
+    crawl_delay = st.sidebar.number_input(
+        "Crawl Delay",
+        min_value=0.1,
+        max_value=10.0,
+        value=get_param_value("crawl_delay", 0.5),
+        step=0.1,
+        help="Delay between requests in seconds",
+    )
+
+    # Update only_main_content
+    only_main_content = st.sidebar.checkbox(
+        "Only Main Content",
+        value=get_param_value("only_main_content", True),
+        help="Extract only the main content of the page",
+    )
+
+    # Update the session state with the new values
+    st.session_state.crawl_params = {
+        "max_depth": max_depth,
+        "max_pages": max_pages,
+        "crawl_delay": crawl_delay,
+        "only_main_content": only_main_content,
+    }
+
+    st.sidebar.info("Crawl parameters updated")
 
 
 def youtube_chat_submit(url):
@@ -313,7 +335,6 @@ def crawl_submit(url):
                 split_result = fn_result  # Assume it's already split if not a string
             st.session_state.split_result = split_result
             st.session_state.results_to_display = True
-            st.success("Crawl completed successfully!")
             return split_result
         else:
             st.error(

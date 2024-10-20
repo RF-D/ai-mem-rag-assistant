@@ -27,7 +27,6 @@ pinecone-client
 datasets
 scrapegraphai
 youtube-transcript-api
-pytube
 anthropic-tools
 tavily-python
 dotenv-python

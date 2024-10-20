@@ -3,34 +3,28 @@ import json
 import logging
 import requests
 from langchain_community.document_loaders import FireCrawlLoader
-from langchain.schema import Document  # Add this import
+from langchain.schema import Document
 from firecrawl import FirecrawlApp
 import streamlit as st
-
 from dotenv import load_dotenv
 
 load_dotenv()
-
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Default FireCrawl Setup
+# Updated default FireCrawl Setup
 default_crawl_params = {
-    "crawlerOptions": {
-        "excludes": [],
-        "includes": [],
-        "maxDepth": 3,
-        "limit": 50,
-        "crawldelay": 0.5,
-    },
-    "pageOptions": {"onlyMainContent": True},
+    "max_depth": 3,
+    "max_pages": 50,
+    "crawl_delay": 0.5,
+    "only_main_content": True,
 }
 
 
 def get_default_crawl_params():
-    return default_crawl_params
+    return default_crawl_params.copy()
 
 
 def is_url_accessible(url):
@@ -50,56 +44,45 @@ def crawl(url, params=None, wait_until_done=True, timeout=300, check_interval=5)
             return None
 
         app = FirecrawlApp()
-        crawl_params_to_use = params if params is not None else default_crawl_params
-        logger.info(f"Crawl parameters: {crawl_params_to_use}")
+        crawl_params = params if params is not None else get_default_crawl_params()
+
+        # Prepare the parameters in the format expected by FirecrawlApp
+        firecrawl_params = {
+            "limit": crawl_params.get("max_pages", 300),
+            "maxDepth": crawl_params.get("max_depth", 3),
+            "scrapeOptions": {
+                "onlyMainContent": crawl_params.get("only_main_content", True),
+                "formats": ["markdown", "html"],
+            },
+        }
+
+        logger.info(f"Crawl parameters: {firecrawl_params}")
 
         try:
-            crawl_result = app.crawl_url(
-                url, params=crawl_params_to_use, wait_until_done=wait_until_done
+            crawl_status = app.crawl_url(
+                url, params=firecrawl_params, poll_interval=check_interval
             )
-            logger.info(f"Raw crawl result: {crawl_result}")
+            logger.info("Crawl started successfully")
         except Exception as e:
             logger.error(f"Exception during crawl_url call: {str(e)}", exc_info=True)
             return None
 
-        if not crawl_result:
-            logger.error("Crawl result is empty. The API call might have failed.")
-            st.error(
-                "Crawl result is empty. The API call might have failed. Please check your API key and parameters."
-            )
-            return None
-
-        # Check if the result is already in the expected format
-        if (
-            isinstance(crawl_result, list)
-            and len(crawl_result) > 0
-            and "markdown" in crawl_result[0]
-        ):
-            logger.info("Crawl completed successfully")
-            return "\n\n".join([item["markdown"] for item in crawl_result])
-
-        # If we don't have a jobId, assume the crawl is already complete
-        if "jobId" not in crawl_result:
-            logger.warning(
-                "No jobId in crawl result. Assuming crawl is already complete."
-            )
-            return process_crawl_result(crawl_result)
-
-        job_id = crawl_result["jobId"]
-        logger.info(f"Job ID: {job_id}")
-
         if not wait_until_done:
-            return crawl_result
+            return {"status": "started", "crawl_status": crawl_status}
 
         start_time = time.time()
         status_text = st.empty()
 
         while True:
-            status = app.check_crawl_status(job_id)
-            logger.info(f"Current status: {status['status']}")
-            status_text.text(f"Crawling: {status['status']}")
-            if status["status"] in ["completed", "failed"]:
+            if crawl_status.get("status") == "completed":
+                logger.info("Crawl completed successfully")
                 break
+            elif crawl_status.get("status") == "failed":
+                logger.error(f"Crawl failed: {crawl_status.get('error')}")
+                st.error(f"Crawl failed: {crawl_status.get('error')}")
+                return None
+
+            status_text.text(f"Crawled: {crawl_status.get('pagesCrawled', 0)} pages")
 
             if time.time() - start_time > timeout:
                 logger.warning("Crawl job timed out")
@@ -107,26 +90,11 @@ def crawl(url, params=None, wait_until_done=True, timeout=300, check_interval=5)
                 return None
 
             time.sleep(check_interval)
+            crawl_status = app.check_crawl_status(crawl_status.get("id"))
 
-        # If the crawl is completed, process the result
-        if status["status"] == "completed":
-            logger.info("Crawl completed successfully")
-
-            # Save the raw result to a file
-            with open(f"crawl_result_{job_id}.json", "w", encoding="utf-8") as f:
-                json.dump(status, f, indent=4)
-
-            # Process the data for Langchain
-            documents = []
-            for item in status.get("data", []):
-                content = f"Title: {item.get('title', '')}\n\nDescription: {item.get('description', '')}\n\nContent:\n{item.get('markdown', '')}\n\nSource: {item.get('sourceURL', '')}"
-                documents.append(content)
-
-            return "\n\n".join(documents)  # Return as a single string
-        else:
-            logger.error(f"Crawl failed with status: {status['status']}")
-            st.error(f"Crawl failed with status: {status['status']}")
-            return None
+        # Process and return the crawl results
+        documents = process_crawl_result(crawl_status.get("data", []))
+        return documents
 
     except Exception as e:
         logger.error(f"Error during crawling: {str(e)}", exc_info=True)
@@ -138,12 +106,10 @@ def process_crawl_result(result):
     if isinstance(result, list) and len(result) > 0:
         documents = []
         for item in result:
-            content = f"Title: {item.get('metadata', {}).get('title', '')}\n\n"
-            content += (
-                f"Description: {item.get('metadata', {}).get('description', '')}\n\n"
-            )
+            content = f"Title: {item.get('title', '')}\n\n"
+            content += f"Description: {item.get('description', '')}\n\n"
             content += f"Content:\n{item.get('markdown', '')}\n\n"
-            content += f"Source: {item.get('metadata', {}).get('sourceURL', '')}"
+            content += f"Source: {item.get('sourceURL', '')}"
             documents.append(content)
         return "\n\n".join(documents)
     else:
