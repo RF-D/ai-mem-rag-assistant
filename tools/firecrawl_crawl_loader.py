@@ -20,6 +20,7 @@ default_crawl_params = {
     "max_pages": 50,
     "crawl_delay": 0.5,
     "only_main_content": True,
+    "allow_backward_links": True,
 }
 
 
@@ -51,6 +52,9 @@ def crawl(url, params=None, wait_until_done=True, timeout=300, check_interval=5)
             "limit": crawl_params.get("max_pages", default_crawl_params["max_pages"]),
             "maxDepth": crawl_params.get(
                 "max_depth", default_crawl_params["max_depth"]
+            ),
+            "allowBackwardLinks": crawl_params.get(
+                "allow_backward_links", default_crawl_params["allow_backward_links"]
             ),
             "scrapeOptions": {
                 "onlyMainContent": crawl_params.get(
