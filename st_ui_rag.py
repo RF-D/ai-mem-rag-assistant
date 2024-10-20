@@ -259,7 +259,15 @@ if st.sidebar.button("URL Submit", key="url_submit"):
                 fn_result = sidebar_config.functions[sidebar_config.selected_function](
                     url
                 )
-
+                st.session_state.split_result = split_md(fn_result)
+                if st.session_state.split_result:
+                    st.session_state.display_results = True
+                    result = st.session_state.split_result
+                else:
+                    st.warning(
+                        f"{sidebar_config.selected_function} completed, but no results were found."
+                    )
+                    st.session_state.display_results = False
         if result:
             if isinstance(result, str):
                 st.session_state.split_result = split_md(result)
