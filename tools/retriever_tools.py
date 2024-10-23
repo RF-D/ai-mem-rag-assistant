@@ -23,9 +23,9 @@ def retriever_tool_meta(vectorstore):
 
         # Use VoyageAIRerank for reranking
         reranker = VoyageAIRerank(
-            model="rerank-1",
+            model="rerank-2",
             voyageai_api_key=os.getenv("VOYAGE_API_KEY"),
-            top_k=10,
+            top_k=25,
             instruction="Prioritize documents that are most relevant and directly answer the query. Consider context, specificity, and factual accuracy.",
         )
 

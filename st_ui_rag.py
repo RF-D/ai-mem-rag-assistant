@@ -6,6 +6,8 @@ from functools import lru_cache
 from operator import itemgetter
 from dotenv import load_dotenv
 from utils.llm_manager import LLMManager
+from anthropic import InternalServerError, APIError
+import time
 
 # Langchain imports
 from langchain_anthropic import ChatAnthropic
@@ -413,12 +415,32 @@ if user_input:
         # Display "Thinking..." message
         loading_message.markdown("Thinking...")
 
-        result = ""
-        for token in chain.invoke(
-            input={"question": user_input, "chat_history": trimmed_history}
-        ):
-            result += token
-            loading_message.markdown(result)
+        max_retries = 5
+        retry_delay = 5  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                result = ""
+                for token in chain.invoke(
+                    input={"question": user_input, "chat_history": trimmed_history}
+                ):
+                    result += token
+                    loading_message.markdown(result)
+                break  # If successful, break out of the retry loop
+            except InternalServerError as e:
+                if attempt < max_retries - 1:  # If not the last attempt
+                    st.warning(
+                        f"Encountered an error. Retrying in {retry_delay} seconds..."
+                    )
+                    time.sleep(retry_delay)
+                else:
+                    st.error(
+                        "Failed to get a response after multiple attempts. Please try again later."
+                    )
+                    st.exception(e)
+            except APIError as e:
+                st.error("An API error occurred. Please try again later.")
+                st.exception(e)
 
     # Calculate prompt tokens
     prompt_tokens = LLMManager.count_tokens(
