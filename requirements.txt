@@ -1,4 +1,3 @@
-
 #pip install -r requirements.txt
 tenacity
 ratelimit
@@ -9,7 +8,7 @@ tiktoken
 transformers
 pinecone-client
 unstructured
-pytube
+pytube>=15.0.0
 youtube-transcript-api
 langchain-mistralai
 langchainhub
