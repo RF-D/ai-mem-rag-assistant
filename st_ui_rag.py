@@ -165,7 +165,7 @@ def _format_chat_history(chat_history: List[Tuple[str, str]]) -> List:
             buffer.append(HumanMessage(content=message["content"]))
         elif message["role"] == "assistant":
             buffer.append(AIMessage(content=message["content"]))
-    return buffer
+    return buffer[:-1] if buffer and buffer[-1].type == "human" else buffer
 
 
 # User input
@@ -399,14 +399,17 @@ if st.session_state.display_results:
 if user_input:
     # Display user input in chat message container
     with st.chat_message("user", avatar="utils/images/user_avatar.png"):
-        st.text(user_input)
+        st.markdown(user_input)
 
     # Append to chat history
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     # Trim chat history before sending to the model
     trimmed_history, history_tokens = trim_chat_history(
-        st.session_state.messages, MAX_HISTORY_TOKENS
+        st.session_state.messages[
+            :-1
+        ],  # Exclude the current message to prevent duplication
+        MAX_HISTORY_TOKENS,
     )
 
     # Display assistant response in chat message container
