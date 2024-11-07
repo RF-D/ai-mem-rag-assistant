@@ -26,7 +26,13 @@ def retriever_tool_meta(vectorstore):
             model="rerank-2",
             voyageai_api_key=os.getenv("VOYAGE_API_KEY"),
             top_k=25,
-            instruction="Prioritize documents that are most relevant and directly answer the query. Consider context, specificity, and factual accuracy.",
+            instruction="""Prioritize documents that are most relevant to the context of the query. 
+            Consider the following factors:
+            1. Semantic similarity between the query and the document.
+            2. Presence of key concepts or entities mentioned in the query.
+            3. The document's ability to provide comprehensive information related to the query.
+            4. Contextual relevance, including implicit connections not directly stated in the query.
+            5. The overall factual accuracy and reliability of the information in the document.""",
         )
 
         # Create a ContextualCompressionRetriever

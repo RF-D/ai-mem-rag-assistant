@@ -79,7 +79,7 @@ def load_retriever():
 
 @lru_cache(maxsize=1)
 def load_condense_question_prompt():
-    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
+    _template = """"Given the following context, conversation, or a follow up question, rephrase the follow up question to be a standalone question that will optimize contextual retrieval.
     Chat History:
     {chat_history}
     Follow Up Input: {question}
@@ -165,7 +165,7 @@ def _format_chat_history(chat_history: List[Tuple[str, str]]) -> List:
             buffer.append(HumanMessage(content=message["content"]))
         elif message["role"] == "assistant":
             buffer.append(AIMessage(content=message["content"]))
-    return buffer
+    return buffer[:-1] if buffer and buffer[-1].type == "human" else buffer
 
 
 # User input
@@ -175,18 +175,12 @@ class ChatHistory(BaseModel):
 
 
 _search_query = RunnableBranch(
-    # If input includes chat_history, we condense it with the follow-up question
     (
-        RunnableLambda(lambda x: bool(x.get("chat_history"))).with_config(
-            run_name="HasChatHistoryCheck"
-        ),
-        # Condense follow-up question and chat into a standalone_question
+        # Always try to use the CONDENSE_QUESTION_PROMPT first
+        lambda x: True,
         RunnablePassthrough.assign(
             chat_history=lambda x: _format_chat_history(
-                x["chat_history"][:-1]
-                if x["chat_history"]
-                and x["chat_history"][-1]["content"] == x["question"]
-                else x["chat_history"]
+                x.get("chat_history", [])  # Handle case when chat_history is empty
             ),
             question=lambda x: x["question"],
         )
@@ -194,7 +188,7 @@ _search_query = RunnableBranch(
         | search_query_llm
         | StrOutputParser(),
     ),
-    # Else, we have no chat history, so just pass through the question
+    # Fallback to raw question if anything fails
     RunnableLambda(itemgetter("question")),
 )
 
@@ -399,14 +393,17 @@ if st.session_state.display_results:
 if user_input:
     # Display user input in chat message container
     with st.chat_message("user", avatar="utils/images/user_avatar.png"):
-        st.text(user_input)
+        st.markdown(user_input)
 
     # Append to chat history
     st.session_state.messages.append({"role": "user", "content": user_input})
 
     # Trim chat history before sending to the model
     trimmed_history, history_tokens = trim_chat_history(
-        st.session_state.messages, MAX_HISTORY_TOKENS
+        st.session_state.messages[
+            :-1
+        ],  # Exclude the current message to prevent duplication
+        MAX_HISTORY_TOKENS,
     )
 
     # Display assistant response in chat message container
