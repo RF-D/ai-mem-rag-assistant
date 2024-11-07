@@ -79,7 +79,7 @@ def load_retriever():
 
 @lru_cache(maxsize=1)
 def load_condense_question_prompt():
-    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.
+    _template = """"Given the following context, conversation, or a follow up question, rephrase the follow up question to be a standalone question that will optimize contextual retrieval.
     Chat History:
     {chat_history}
     Follow Up Input: {question}
