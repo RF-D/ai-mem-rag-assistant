@@ -175,18 +175,12 @@ class ChatHistory(BaseModel):
 
 
 _search_query = RunnableBranch(
-    # If input includes chat_history, we condense it with the follow-up question
     (
-        RunnableLambda(lambda x: bool(x.get("chat_history"))).with_config(
-            run_name="HasChatHistoryCheck"
-        ),
-        # Condense follow-up question and chat into a standalone_question
+        # Always try to use the CONDENSE_QUESTION_PROMPT first
+        lambda x: True,
         RunnablePassthrough.assign(
             chat_history=lambda x: _format_chat_history(
-                x["chat_history"][:-1]
-                if x["chat_history"]
-                and x["chat_history"][-1]["content"] == x["question"]
-                else x["chat_history"]
+                x.get("chat_history", [])  # Handle case when chat_history is empty
             ),
             question=lambda x: x["question"],
         )
@@ -194,7 +188,7 @@ _search_query = RunnableBranch(
         | search_query_llm
         | StrOutputParser(),
     ),
-    # Else, we have no chat history, so just pass through the question
+    # Fallback to raw question if anything fails
     RunnableLambda(itemgetter("question")),
 )
 
