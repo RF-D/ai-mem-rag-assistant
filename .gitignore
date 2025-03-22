@@ -1,15 +1,33 @@
+# Python cache files
+__pycache__/
+*/__pycache__/
+*.py[cod]
+
+# Environment and config
 config/.env
-utils/__pycache__
-utils/sitemaps
-utils/added_memory
-tools/__pycache__
-components/__pycache__
-my-app/
-__pycache__
 venv/
 
-# Ignore crawl result files
-crawl_result_*.json
-.cursorignore
+# Development and data directories
+utils/sitemaps/
+utils/added_memory/
+my-app/
 chroma_db/
 metadata/
+path/
+
+# Crawl and temporary files
+crawl_result_*.json
+.cursorignore
+
+# SSL Certificate settings
+*.pem
+*.crt
+
+# Files not needed for st_ui_rag
+code_teacher_agent.py
+rag_ask.py
+rag_chat_base.py
+rag_chat_tools.py
+tool_agents.py
+tool_call.py
+tool_definitions.json

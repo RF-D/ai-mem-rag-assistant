@@ -9,6 +9,16 @@ from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain_community.chat_models import ChatOllama
 from langchain_mistralai.chat_models import ChatMistralAI
+from langchain.chat_models.base import BaseChatModel
+from langchain.schema import ChatResult, BaseMessage, ChatGeneration, AIMessage
+from typing import Any, List, Optional, Iterator
+import requests
+import json
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from urllib3.exceptions import InsecureRequestWarning
+import warnings
+from requests.exceptions import SSLError
 
 
 # Local imports for Ollama
@@ -22,6 +32,134 @@ import psutil
 # Streamlit is needed for type hinting and accessing session state
 import streamlit as st
 
+from pydantic import Field
+
+from openai import OpenAI
+
+
+class ChatGrok(BaseChatModel):
+    """Custom wrapper for xAI's Grok API"""
+
+    api_key: str = Field(...)  # ... means required
+    model: str = Field(default="grok-beta")
+    temperature: float = Field(default=0.7)
+    max_tokens: Optional[int] = Field(default=None)
+    streaming: bool = Field(default=True)
+    base_url: str = "https://api.x.ai/v1"
+    client: Any = Field(default=None)
+
+    # Add role mapping
+    ROLE_MAP = {
+        "human": "user",
+        "ai": "assistant",
+        "system": "system",
+    }
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "grok-beta",
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        streaming: bool = True,
+        **kwargs: Any,
+    ):
+        super().__init__(
+            api_key=api_key,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            streaming=streaming,
+            **kwargs,
+        )
+        # Initialize the OpenAI client
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+        )
+
+    @property
+    def _llm_type(self) -> str:
+        """Return identifier for the LLM type"""
+        return "grok"
+
+    def _map_role(self, role: str) -> str:
+        """Map LangChain roles to OpenAI roles"""
+        return self.ROLE_MAP.get(role, "user")
+
+    def _generate(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        formatted_messages = [
+            {"role": self._map_role(msg.type), "content": msg.content}
+            for msg in messages
+        ]
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=formatted_messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                stop=stop,
+                stream=False,
+                **kwargs,
+            )
+
+            return ChatResult(
+                generations=[
+                    ChatGeneration(
+                        message=AIMessage(content=response.choices[0].message.content),
+                        generation_info={
+                            "usage": response.usage.dict() if response.usage else {}
+                        },
+                    )
+                ]
+            )
+        except Exception as e:
+            print(f"Error in ChatGrok _generate: {str(e)}")
+            raise
+
+    def _stream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatResult]:
+        formatted_messages = [
+            {"role": self._map_role(msg.type), "content": msg.content}
+            for msg in messages
+        ]
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=formatted_messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                stop=stop,
+                stream=True,
+                **kwargs,
+            )
+
+            for chunk in response:
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield ChatResult(
+                        generations=[
+                            ChatGeneration(
+                                message=AIMessage(
+                                    content=chunk.choices[0].delta.content
+                                )
+                            )
+                        ]
+                    )
+        except Exception as e:
+            print(f"Error in ChatGrok _stream: {str(e)}")
+            raise
+
 
 class LLMManager:
     provider_models = {
@@ -30,6 +168,7 @@ class LLMManager:
             "claude-3-5-haiku-20241022",
             "claude-3-5-sonnet-latest",
             "claude-3-opus-20240229",
+            "claude-3-7-sonnet-20250219",
         ],
         "OpenAI": ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
         "Groq": [
@@ -53,6 +192,7 @@ class LLMManager:
             "google/gemini-pro-1.5",
             "qwen/qwen-2.5-72b-instruct",
         ],
+        "xAI": ["grok-beta"],
     }
     # TODO: Make this dynamic based on the model
     MAX_HISTORY_TOKENS = 200000
@@ -178,6 +318,9 @@ class LLMManager:
                 base_url="https://openrouter.ai/api/v1",
                 temperature=0.7,
             ),
+            "xAI": lambda api_key: ChatGrok(
+                api_key=api_key, model=model, temperature=0.7, streaming=True
+            ),
         }
         if provider not in providers:
             raise ValueError(f"Unsupported provider: {provider}")
@@ -286,9 +429,59 @@ class LLMManager:
                     base_url="https://openrouter.ai/api/v1",
                     model="qwen/qwen-2-vl-7b-instruct:free",
                 ).invoke("Test")
+            elif provider == "xAI":
+                ChatGrok(api_key=api_key, model="grok-beta").invoke("Test")
             else:
                 return False  # Unsupported provider
             return True
         except Exception as e:
             print(f"API key validation failed for {provider}: {str(e)}")
             return False
+
+    def _create_session(self):
+        """Create a requests session with retry strategy and SSL verification handling"""
+        session = requests.Session()
+
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("https://", adapter)
+
+        # Disable SSL verification warnings if needed
+        warnings.filterwarnings("ignore", category=InsecureRequestWarning)
+
+        return session
+
+    def get_embeddings(self, texts):
+        """Get embeddings with proper error handling and SSL verification"""
+        try:
+            # First try with SSL verification
+            response = self.client.embeddings.create(
+                model=self.embedding_model, input=texts
+            )
+            return response
+        except SSLError:
+            # If SSL verification fails, try with verification disabled
+            # Note: This is a fallback solution and should be used cautiously
+            import os
+
+            os.environ["REQUESTS_CA_BUNDLE"] = (
+                ""  # Temporarily disable SSL cert verification
+            )
+            try:
+                response = self.client.embeddings.create(
+                    model=self.embedding_model, input=texts
+                )
+                return response
+            finally:
+                # Reset the environment variable
+                os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        except Exception as e:
+            # Handle other potential errors
+            print(f"Error getting embeddings: {str(e)}")
+            raise
