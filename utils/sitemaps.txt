@@ -1,10 +1,10 @@
+# Use these as reference for sitemap scraping test functionality and retrieval accuracy. 
+
 https://api.python.langchain.com/sitemap.xml
 
 https://python.langchain.com/sitemap.xml
 
 https://docs.anthropic.com/sitemap.xml
-
-https://www.programiz.com/sitemap.xml
 
 https://docs.firecrawl.dev/sitemap.xml
 
