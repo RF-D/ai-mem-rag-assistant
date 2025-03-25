@@ -1,5 +1,34 @@
 # ai-mem-rag-assistant
 
+## App Capabilities
+
+AI Memory is an advanced conversational RAG (Retrieval-Augmented Generation) assistant with persistent memory capabilities. The application leverages multiple large language models (LLMs) to provide accurate, contextually relevant responses by retrieving information from various sources.
+
+### Key Features:
+
+1. **Multi-provider LLM Support**: Seamlessly integrate with various AI providers including Anthropic, OpenAI, Groq, and Ollama for both response generation and information retrieval tasks.
+
+2. **Persistent Memory Storage**: Efficiently store and retrieve information in vector databases (Pinecone) to maintain context across conversations.
+
+3. **Multiple Content Ingestion Methods**:
+   - **Web Crawling**: Intelligently crawl websites with configurable parameters
+   - **Sitemap Scraping**: Extract and process content from website sitemaps
+   - **YouTube Analysis**: Process video content and transcripts from YouTube URLs
+   - **Document Upload**: Support for various document formats (TXT, PDF, DOCX)
+   - **Manual Text Input**: Directly paste text to be processed and stored
+
+4. **Adaptive Token Management**: Automatically manages conversation history to stay within token limits while preserving context.
+
+5. **Robust Error Handling**: Implements retry mechanisms and graceful degradation for API errors.
+
+6. **User-friendly Interface**: Built with Streamlit for intuitive interaction and configuration.
+
+7. **Vector Database Integration**: Uses Pinecone for efficient semantic search capabilities.
+
+8. **High-quality Embeddings**: Utilizes Voyage AI embeddings for superior semantic search performance.
+
+This application is ideal for researchers, content creators, developers, and anyone needing to have extended conversations with AI that can recall specific information from diverse sources.
+
 ## Setup
 
 ### Requirements
