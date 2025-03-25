@@ -25,7 +25,12 @@ AI Memory is an advanced conversational RAG (Retrieval-Augmented Generation) ass
 
 7. **Vector Database Integration**: Uses Pinecone for efficient semantic search capabilities.
 
-8. **High-quality Embeddings**: Utilizes Voyage AI embeddings for superior semantic search performance.
+8. **Contextualized Embeddings**: Utilizes Voyage AI's instruction-tuned embeddings (voyage-large-2-instruct) for superior semantic search performance. These state-of-the-art contextualized embeddings significantly improve RAG accuracy by:
+   - Capturing nuanced semantic relationships between concepts
+   - Better understanding of context and intent in queries
+   - Reducing retrieval of irrelevant information
+   - Enhancing the precision of knowledge retrieval for complex topics
+   - Maintaining contextual coherence across different domains
 
 This application is ideal for researchers, content creators, developers, and anyone needing to have extended conversations with AI that can recall specific information from diverse sources.
 
