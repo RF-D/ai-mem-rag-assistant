@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Dict
+from typing import Dict, ClassVar, List, Optional, Iterator, Any
 from sys import stdout
 import re
 
@@ -11,7 +11,6 @@ from langchain_community.chat_models import ChatOllama
 from langchain_mistralai.chat_models import ChatMistralAI
 from langchain.chat_models.base import BaseChatModel
 from langchain.schema import ChatResult, BaseMessage, ChatGeneration, AIMessage
-from typing import Any, List, Optional, Iterator
 import requests
 import json
 from requests.adapters import HTTPAdapter
@@ -48,8 +47,8 @@ class ChatGrok(BaseChatModel):
     base_url: str = "https://api.x.ai/v1"
     client: Any = Field(default=None)
 
-    # Add role mapping
-    ROLE_MAP = {
+    # Add role mapping as ClassVar to indicate it's not a model field
+    ROLE_MAP: ClassVar[Dict[str, str]] = {
         "human": "user",
         "ai": "assistant",
         "system": "system",
