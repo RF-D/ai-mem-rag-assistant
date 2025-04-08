@@ -370,7 +370,7 @@ chat_history = []
 # Initialize token counters
 update_token_count = LLMManager.update_token_count
 
-st.title("Persistent Memory Conversational Agent")
+st.title("Advanced Conversational RAG Agent")
 
 
 for message in st.session_state.messages:
