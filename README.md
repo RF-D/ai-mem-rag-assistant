@@ -65,6 +65,10 @@ ollama serve
 
 ### Virtual Environment
 
+You have two options for managing your Python environment:
+
+#### Option 1: Using venv
+
 If you used Homebrew to install python, you'll get an error about your
 environment being externally managed when you try to install with `pip`.
 
@@ -84,6 +88,30 @@ which python #=> should list this project's virtual env
 
 # Use the virtual environment's version of Python to install your pip dependencies
 python -m pip install -r requirements.txt # note the use of python instead of python3 (system)
+
+# When you're done, deactivate the virtual environment
+deactivate
+```
+
+#### Option 2: Using Conda
+
+Alternatively, you can use Conda to manage your Python environment:
+
+```bash
+# Create a new conda environment
+conda create --name ai-mem-rag
+
+# Activate the conda environment
+conda activate ai-mem-rag
+
+#Make sure pip is installed in your conda env 
+conda install pip
+
+# Install the requirements
+pip install -r requirements.txt
+
+# When you're done, deactivate the conda environment
+conda deactivate
 ```
 
 ### API Keys
