@@ -169,12 +169,17 @@ class LLMManager:
             "claude-3-opus-20240229",
             "claude-3-7-sonnet-20250219",
         ],
-        "OpenAI": ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
+        "OpenAI": [
+            "gpt-4.5-preview-2025-02-27",
+            "gpt-4o-mini-2024-07-18",
+            "gpt-4o-2024-08-06",
+            "gpt-3.5-turbo",
+        ],
         "Groq": [
-            "llama-3.1-70b-versatile",
-            "llama-3.1-405b-reasoning",
-            "mixtral-8x7b-32768",
-            "llama3-groq-70b-8192-tool-use-preview",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "llama-3.3-70b-versatile",
+            "deepseek-r1-distill-qwen-32b"
+            
         ],
         "Mistral": [
             "mistral-large-latest",
