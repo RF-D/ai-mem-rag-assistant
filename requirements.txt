@@ -9,7 +9,7 @@ transformers==4.46.2
 pinecone
 unstructured==0.17.2
 pytube==15.0.0
-youtube-transcript-api==0.6.2
+youtube-transcript-api
 langchain-mistralai
 langchainhub
 langchain-anthropic
@@ -22,7 +22,6 @@ langchain-text-splitters
 firecrawl-py==1.4.0
 voyageai
 datasets==3.1.0
-youtube-transcript-api==0.6.2
 tavily-python==0.5.0
 dotenv-python==0.0.1
 nest_asyncio==1.6.0

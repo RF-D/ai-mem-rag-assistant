@@ -9,21 +9,31 @@ import re
 
 def extract_video_id(url):
     """Extract the video ID from a YouTube URL."""
+    # Handle youtu.be URLs
+    if "youtu.be" in url:
+        video_id_match = re.search(r"youtu\.be/([a-zA-Z0-9_-]{11})", url)
+        if video_id_match:
+            return video_id_match.group(1)
+    
+    # Handle youtube.com URLs
     video_id_match = re.search(r"(?:v=|/)([\w-]{11})", url)
     if video_id_match:
         return video_id_match.group(1)
+    
     return None
 
 
 def get_transcript(video_id):
     """Get the transcript for a YouTube video."""
     try:
+        logging.info(f"Attempting to get transcript for video ID: {video_id}")
         transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
         return " ".join([entry["text"] for entry in transcript_list])
     except TranscriptsDisabled:
+        logging.warning(f"Transcripts disabled for video ID: {video_id}")
         return "Transcript not available for this video."
     except Exception as e:
-        logging.error(f"Error getting transcript: {str(e)}")
+        logging.error(f"Error getting transcript for video ID {video_id}: {str(e)}")
         return "Error retrieving transcript."
 
 
@@ -31,8 +41,11 @@ def youtube_chat(url):
     try:
         video_id = extract_video_id(url)
         if not video_id:
+            logging.error(f"Could not extract video ID from URL: {url}")
             raise ValueError("Could not extract video ID from URL")
 
+        logging.info(f"Extracted video ID: {video_id} from URL: {url}")
+        
         # Get transcript first
         transcript_text = get_transcript(video_id)
 
