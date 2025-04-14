@@ -57,7 +57,6 @@ load_dotenv()
 
 
 LLMManager.initialize_ollama_models()
-MAX_HISTORY_TOKENS = LLMManager.MAX_HISTORY_TOKENS
 
 
 # Initialize the Streamlit app and get the sidebar configuration
@@ -403,7 +402,7 @@ if user_input:
         st.session_state.messages[
             :-1
         ],  # Exclude the current message to prevent duplication
-        MAX_HISTORY_TOKENS,
+        LLMManager.get_max_history_tokens(sidebar_config.chain_provider, sidebar_config.chain_model),
     )
 
     # Display assistant response in chat message container
@@ -458,11 +457,11 @@ if user_input:
     st.session_state.messages.append({"role": "assistant", "content": result})
 
     # Trim chat history if needed, based on total tokens
-    if st.session_state.total_tokens > LLMManager.MAX_HISTORY_TOKENS:
+    if st.session_state.total_tokens > LLMManager.get_max_history_tokens(sidebar_config.chain_provider, sidebar_config.chain_model):
         st.session_state.messages, new_prompt_tokens = trim_chat_history(
-            st.session_state.messages, LLMManager.MAX_HISTORY_TOKENS
+            st.session_state.messages, LLMManager.get_max_history_tokens(sidebar_config.chain_provider, sidebar_config.chain_model)
         )
         LLMManager.reset_token_count(st.session_state, new_prompt_tokens)
 
     # Display updated token counts
-    LLMManager.display_token_counts(st.sidebar, st.session_state)
+    LLMManager.display_token_counts(st.sidebar, st.session_state, sidebar_config.chain_provider, sidebar_config.chain_model)

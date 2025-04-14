@@ -173,6 +173,7 @@ class LLMManager:
             "gpt-4.5-preview-2025-02-27",
             "gpt-4o-mini-2024-07-18",
             "gpt-4o-2024-08-06",
+            "gpt-4.1-2025-04-14",
             "gpt-3.5-turbo",
         ],
         "Groq": [
@@ -198,8 +199,33 @@ class LLMManager:
         ],
         "xAI": ["grok-beta"],
     }
-    # TODO: Make this dynamic based on the model
-    MAX_HISTORY_TOKENS = 200000
+    # Mapping of model names to their context window sizes (max tokens)
+    MODEL_CONTEXT_WINDOWS = {
+        # OpenAI
+        "gpt-4.1-2025-04-14": 1_047_576,
+        "gpt-4.5-preview-2025-02-27": 128_000,
+        "gpt-4o-mini-2024-07-18": 128_000,
+        "gpt-4o-2024-08-06": 128_000,
+        "gpt-3.5-turbo": 16_385,
+        "openai/o1-mini-2024-09-12": 128_000,
+        "openai/o1-preview-2024-09-12": 200_000,
+        # Anthropic
+        "claude-3-haiku-20240307": 200_000,
+        "claude-3-5-haiku-20241022": 200_000,
+        "claude-3-5-sonnet-latest": 200_000,
+        "claude-3-opus-20240229": 200_000,
+        "claude-3-7-sonnet-20250219": 200_000,
+    }
+    DEFAULT_MAX_HISTORY_TOKENS = 128_000
+
+    @staticmethod
+    def get_max_history_tokens(provider: str, model: str) -> int:
+        # Only OpenAI and Anthropic have special cases, others use default
+        key = model
+        if provider in ("OpenAI", "Anthropic"):
+            return LLMManager.MODEL_CONTEXT_WINDOWS.get(key, LLMManager.DEFAULT_MAX_HISTORY_TOKENS)
+        return LLMManager.DEFAULT_MAX_HISTORY_TOKENS
+
     ollama_process = None
 
     @staticmethod
@@ -395,18 +421,20 @@ class LLMManager:
         st_session_state.total_tokens = new_prompt_tokens
 
     @staticmethod
-    def get_token_usage_percentage(st_session_state):
-        return (st_session_state.total_tokens / LLMManager.MAX_HISTORY_TOKENS) * 100
+    def get_token_usage_percentage(st_session_state, provider: str, model: str):
+        max_tokens = LLMManager.get_max_history_tokens(provider, model)
+        return (st_session_state.total_tokens / max_tokens) * 100
 
     @staticmethod
-    def display_token_counts(st_sidebar, st_session_state):
+    def display_token_counts(st_sidebar, st_session_state, provider: str, model: str):
         st_sidebar.write(f"Prompt tokens: {st_session_state.total_prompt_tokens}")
         st_sidebar.write(
             f"Completion tokens: {st_session_state.total_completion_tokens}"
         )
         st_sidebar.write(f"Total tokens: {st_session_state.total_tokens}")
-        st_sidebar.write(f"Max history tokens: {LLMManager.MAX_HISTORY_TOKENS}")
-        usage_percentage = LLMManager.get_token_usage_percentage(st_session_state)
+        max_tokens = LLMManager.get_max_history_tokens(provider, model)
+        st_sidebar.write(f"Max history tokens: {max_tokens}")
+        usage_percentage = LLMManager.get_token_usage_percentage(st_session_state, provider, model)
         st_sidebar.progress(usage_percentage / 100)
         st_sidebar.write(f"Token usage: {usage_percentage:.2f}%")
 
