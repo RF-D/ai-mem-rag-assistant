@@ -170,11 +170,14 @@ class LLMManager:
             "claude-3-7-sonnet-20250219",
         ],
         "OpenAI": [
+            "gpt-4.1-2025-04-14",
             "gpt-4.5-preview-2025-02-27",
             "gpt-4o-mini-2024-07-18",
             "gpt-4o-2024-08-06",
-            "gpt-4.1-2025-04-14",
             "gpt-3.5-turbo",
+            "o3-mini-2025-01-31",
+            "o1-2024-12-17",
+            "o1-mini-2024-09-12",
         ],
         "Groq": [
             "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -207,8 +210,9 @@ class LLMManager:
         "gpt-4o-mini-2024-07-18": 128_000,
         "gpt-4o-2024-08-06": 128_000,
         "gpt-3.5-turbo": 16_385,
-        "openai/o1-mini-2024-09-12": 128_000,
-        "openai/o1-preview-2024-09-12": 200_000,
+        "o3-mini-2025-01-31": 200_000,
+        "o1-2024-12-17": 200_000,
+        "o1-mini-2024-09-12": 128_000,
         # Anthropic
         "claude-3-haiku-20240307": 200_000,
         "claude-3-5-haiku-20241022": 200_000,
@@ -313,9 +317,21 @@ class LLMManager:
     @staticmethod
     def load_llm(provider: str, model: str):
         if not provider:
-            return None  # Return None if no provider is selected
+            return None
 
-        if provider == "Ollama":
+        api_key = os.getenv(f"{provider.upper()}_API_KEY")
+        if not api_key:
+            return None
+
+        # Models that do NOT support temperature
+        no_temp_models = {"o3-mini-2025-01-31", "o1-2024-12-17", "o1-mini-2024-09-12"}
+
+        if provider == "OpenAI":
+            if model in no_temp_models:
+                return ChatOpenAI(api_key=api_key, model=model)
+            else:
+                return ChatOpenAI(api_key=api_key, model=model, temperature=0.7)
+        elif provider == "Ollama":
             LLMManager.initialize_ollama_models()
         else:
             api_key = os.getenv(f"{provider.upper()}_API_KEY")
@@ -325,9 +341,6 @@ class LLMManager:
         providers = {
             "Anthropic": lambda api_key: ChatAnthropic(
                 api_key=api_key, model=model, temperature=0.6
-            ),
-            "OpenAI": lambda api_key: ChatOpenAI(
-                api_key=api_key, model=model, temperature=0.7
             ),
             "Groq": lambda api_key: ChatGroq(
                 api_key=api_key, model_name=model, temperature=0.9, max_tokens=2048
