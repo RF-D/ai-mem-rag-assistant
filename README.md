@@ -40,10 +40,54 @@ This application is ideal for researchers, content creators, developers, and any
 
 #### Python
 
-Use `pip` to install the libraries listed in `requirements.txt`.
+You should first set up your Python environment before installing dependencies. You have two options:
+
+#### Option 1: Using venv
+
+If you used Homebrew to install python, you'll get an error about your environment being externally managed when you try to install with `pip`.
+
+> error: externally-managed-environment
+
+To resolve, use Python's virtual environments feature to install the packages.
 
 ```bash
+# Create a virtual environment
+python3 -m venv venv
+
+# Activate the virtual environment
+source venv/bin/activate
+
+# Verify you're using the version of python from the virtual environment (rather than the system)
+which python #=> should list this project's virtual env
+
+# Use the virtual environment's version of Python to install your pip dependencies
+python -m pip install -r requirements.txt # note the use of python instead of python3 (system)
+
+# When you're done, deactivate the virtual environment
+deactivate
+```
+
+#### Option 2: Using Conda
+
+If you don't have Conda installed, download it from the official website: https://docs.conda.io/en/latest/miniconda.html
+
+Alternatively, you can use Conda to manage your Python environment:
+
+```bash
+# Create a new conda environment
+conda create --name ai-mem-rag
+
+# Activate the conda environment
+conda activate ai-mem-rag
+
+# If you installed Miniconda, you may need to install pip first:
+conda install pip
+
+# Install the requirements
 pip install -r requirements.txt
+
+# When you're done, deactivate the conda environment
+conda deactivate
 ```
 
 ### Ollama
@@ -61,57 +105,6 @@ have Ollama running in stand-alone.
 
 ```bash
 ollama serve
-```
-
-### Virtual Environment
-
-You have two options for managing your Python environment:
-
-#### Option 1: Using venv
-
-If you used Homebrew to install python, you'll get an error about your
-environment being externally managed when you try to install with `pip`.
-
-> error: externally-managed-environment
-
-To resolve, use Python's virtual environments feature to install the packages.
-
-```bash
-# Create a virtual environment
-python3 -m venv venv
-
-# Activate the virtual environment
-source venv/bin/activate
-
-# Verify your using the version of python from the virtual environment (rather than the system)
-which python #=> should list this project's virtual env
-
-# Use the virtual environment's version of Python to install your pip dependencies
-python -m pip install -r requirements.txt # note the use of python instead of python3 (system)
-
-# When you're done, deactivate the virtual environment
-deactivate
-```
-
-#### Option 2: Using Conda
-
-Alternatively, you can use Conda to manage your Python environment:
-
-```bash
-# Create a new conda environment
-conda create --name ai-mem-rag
-
-# Activate the conda environment
-conda activate ai-mem-rag
-
-#Make sure pip is installed in your conda env 
-conda install pip
-
-# Install the requirements
-pip install -r requirements.txt
-
-# When you're done, deactivate the conda environment
-conda deactivate
 ```
 
 ### API Keys

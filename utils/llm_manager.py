@@ -171,6 +171,8 @@ class LLMManager:
         ],
         "OpenAI": [
             "gpt-4.1-2025-04-14",
+            "o4-mini-2025-04-16",
+            "o3-2025-04-16",
             "gpt-4.5-preview-2025-02-27",
             "gpt-4o-mini-2024-07-18",
             "gpt-4o-2024-08-06",
@@ -211,6 +213,8 @@ class LLMManager:
         "gpt-4o-2024-08-06": 128_000,
         "gpt-3.5-turbo": 16_385,
         "o3-mini-2025-01-31": 200_000,
+        "o3-2025-04-16": 200_000,
+        "o4-mini-2025-04-16": 200_000,
         "o1-2024-12-17": 200_000,
         "o1-mini-2024-09-12": 128_000,
         # Anthropic
@@ -324,7 +328,7 @@ class LLMManager:
             return None
 
         # Models that do NOT support temperature
-        no_temp_models = {"o3-mini-2025-01-31", "o1-2024-12-17", "o1-mini-2024-09-12"}
+        no_temp_models = {"o3-2025-04-16", "o4-mini-2025-04-16", "o3-mini-2025-01-31", "o1-2024-12-17", "o1-mini-2024-09-12"}
 
         if provider == "OpenAI":
             if model in no_temp_models:
