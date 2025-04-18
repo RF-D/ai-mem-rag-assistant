@@ -163,11 +163,11 @@ class ChatGrok(BaseChatModel):
 class LLMManager:
     provider_models = {
         "Anthropic": [
-            "claude-3-haiku-20240307",
-            "claude-3-5-haiku-20241022",
+            "claude-3-7-sonnet-latest",
             "claude-3-5-sonnet-latest",
-            "claude-3-opus-20240229",
-            "claude-3-7-sonnet-20250219",
+            "claude-3-5-haiku-latest",
+            "claude-3-opus-latest",
+            
         ],
         "OpenAI": [
             "gpt-4.1-2025-04-14",
@@ -218,11 +218,10 @@ class LLMManager:
         "o1-2024-12-17": 200_000,
         "o1-mini-2024-09-12": 128_000,
         # Anthropic
-        "claude-3-haiku-20240307": 200_000,
-        "claude-3-5-haiku-20241022": 200_000,
+        "claude-3-5-haiku-latest": 200_000,
         "claude-3-5-sonnet-latest": 200_000,
-        "claude-3-opus-20240229": 200_000,
-        "claude-3-7-sonnet-20250219": 200_000,
+        "claude-3-opus-latest": 200_000,
+        "claude-3-7-sonnet-latest": 200_000,
     }
     DEFAULT_MAX_HISTORY_TOKENS = 128_000
 
@@ -460,7 +459,7 @@ class LLMManager:
         try:
             if provider == "Anthropic":
                 ChatAnthropic(
-                    api_key=api_key, model_name="claude-3-sonnet-20240229"
+                    api_key=api_key, model_name="claude-3-5-haiku-latest"
                 ).invoke("Test")
             elif provider == "OpenAI":
                 ChatOpenAI(api_key=api_key, model_name="gpt-3.5-turbo").invoke("Test")
