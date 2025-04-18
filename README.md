@@ -63,8 +63,6 @@ which python #=> should list this project's virtual env
 # Use the virtual environment's version of Python to install your pip dependencies
 python -m pip install -r requirements.txt # note the use of python instead of python3 (system)
 
-# When you're done, deactivate the virtual environment
-deactivate
 ```
 
 #### Option 2: Using Conda
@@ -86,11 +84,11 @@ conda install pip
 # Install the requirements
 pip install -r requirements.txt
 
-# When you're done, deactivate the conda environment
-conda deactivate
 ```
 
-### Ollama
+### Ollama (Optional: For Local Models)
+
+Ollama is only required if you want to use local models. If you plan to use only cloud-based models (OpenAI, Anthropic, Groq, etc.), you can skip this section.
 
 Use Homebrew to setup Ollama and then install your first model.
 
@@ -100,8 +98,7 @@ brew install ollama
 ollama run llama3:latest
 ```
 
-This app will start up Ollama as part of its run environment but you can also
-have Ollama running in stand-alone.
+This app will start up Ollama as part of its run environment but you can also have Ollama running in stand-alone.
 
 ```bash
 ollama serve
@@ -132,7 +129,9 @@ Feel free to use Pinecone's curl script to create your first index (called
 
 Use the same options as the quickstart curl script to create new indexes.
 
-##### Langsmith
+##### Langsmith (Optional: For Tracing)
+
+Langsmith is only required if you want to enable tracing of your LLM calls and workflows. If you do not need tracing, you can skip this step.
 
 Visit https://smith.langchain.com/ to create an API key
 
@@ -140,6 +139,11 @@ Visit https://smith.langchain.com/ to create an API key
 
 You can start right away with a model from Ollama but if you'd like to query
 another model, you'll need to setup keys and billing.
+
+#### OpenAI
+
+Visit the OpenAI platform to create an API key
+https://platform.openai.com/
 
 #### Anthropic
 
@@ -151,12 +155,10 @@ https://console.anthropic.com/dashboard
 Visit the Groq console to create an API key
 https://console.groq.com
 
-#### OpenAI
 
-Visit the OpenAI platform to create an API key
-https://platform.openai.com/
+#### Firecrawl (Optional: For Web Scraping)
 
-#### Firecrawl
+Firecrawl is used for web scraping capabilities. If you want to enable web crawling and scraping features, set up a Firecrawl API key. Otherwise, you can skip this step.
 
 Visit https://www.firecrawl.dev/app to create an API key
 
@@ -166,12 +168,12 @@ Start the Streamlit application.
 
 ```bash
 # Activate your venv if you're using a virtual environment.
-# source venv/bin/activate
+# source venv/bin/activate or conda activate 
 
 streamlit run st_ui_rag.py
 
-# Remember to deactive your virtual environment when done.
-# deactivate
+# Remember to deactive your virtual environment when done using the application.
+# deactivate  or conda deactivate
 ```
 
 You can now view the Streamlit app in your browser.
