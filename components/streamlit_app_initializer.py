@@ -7,7 +7,7 @@ from components.rag_sidebar import setup_sidebar
 
 def initialize_streamlit_app():
     # Set page configuration
-    st.set_page_config(page_title="AI MEM", page_icon=":guardsman:", layout="wide")
+    st.set_page_config(page_title="AI RAG Assistant", page_icon="🧠", layout="wide")
 
     # Initialize session state variables
     if "selected_function" not in st.session_state:

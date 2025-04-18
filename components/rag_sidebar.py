@@ -52,7 +52,7 @@ def update_selected_function():
 
 
 def setup_sidebar() -> SidebarConfig:
-    st.sidebar.title("AI MEM Configuration")
+    st.sidebar.title("AI RAG Configuration")
 
     # Provider selection with an expander
     with st.sidebar.expander(
