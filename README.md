@@ -155,6 +155,15 @@ https://console.anthropic.com/dashboard
 Visit the Groq console to create an API key
 https://console.groq.com
 
+#### Mistral
+
+Visit the Mistral AI website to create an API key
+https://www.mistral.ai/
+
+#### xAI
+
+Visit the xAI developer portal to create an API key
+https://x.ai/api
 
 #### Firecrawl (Optional: For Web Scraping)
 
