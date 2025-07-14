@@ -163,6 +163,8 @@ class ChatGrok(BaseChatModel):
 class LLMManager:
     provider_models = {
         "Anthropic": [
+            "claude-sonnet-4-20250514",
+            "claude-opus-4-20250514",
             "claude-3-7-sonnet-latest",
             "claude-3-5-sonnet-latest",
             "claude-3-5-haiku-latest",
@@ -218,6 +220,8 @@ class LLMManager:
         "o1-2024-12-17": 200_000,
         "o1-mini-2024-09-12": 128_000,
         # Anthropic
+        "claude-sonnet-4-20250514": 200_000,
+        "claude-opus-4-20250514": 200_000,
         "claude-3-5-haiku-latest": 200_000,
         "claude-3-5-sonnet-latest": 200_000,
         "claude-3-opus-latest": 200_000,
